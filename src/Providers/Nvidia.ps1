@@ -30,13 +30,16 @@ function Find-NvidiaProductId {
 }
 
 function Get-NvidiaLatestDriver {
-    param([Parameter(Mandatory)][string]$Psid, [Parameter(Mandatory)][string]$Pfid)
+    param([Parameter(Mandatory)][string]$Psid, [Parameter(Mandatory)][string]$Pfid, [switch]$Studio)
 
+    # Game Ready (jeux) : upCRD=0 + isWHQL=1 / Studio (création) : upCRD=1, SANS filtre isWHQL
+    # (testé : avec isWHQL=1, l'API ne renvoie aucun pilote Studio)
     $query = [ordered]@{
         func = 'DriverManualLookup'; psid = $Psid; pfid = $Pfid; osID = $script:NvidiaOsId
-        languageCode = 1033; beta = 0; isWHQL = 1; dltype = -1; dch = 1; upCRD = 0
+        languageCode = 1033; beta = 0; dltype = -1; dch = 1
         qnf = 0; sort1 = 0; numberOfResults = 1
     }
+    if ($Studio) { $query['upCRD'] = 1 } else { $query['upCRD'] = 0; $query['isWHQL'] = 1 }
     $qs  = ($query.GetEnumerator() | ForEach-Object { '{0}={1}' -f $_.Key, $_.Value }) -join '&'
     $uri = '{0}?{1}' -f $script:NvidiaDriverUrl, $qs
 
@@ -86,9 +89,10 @@ function Get-NvidiaUpdate {
         $ids = Find-NvidiaProductId -GpuName $gpu.Name
         if (-not $ids) { Write-Log "NVIDIA : modèle '$($gpu.Name)' introuvable sur le site" 'WARN'; continue }
 
-        $latest = Get-NvidiaLatestDriver -Psid $ids.Psid -Pfid $ids.Pfid
+        $studio = ((Get-AppSettings).NvidiaBranch -eq 'Studio')
+        $latest = Get-NvidiaLatestDriver -Psid $ids.Psid -Pfid $ids.Pfid -Studio:$studio
         if (-not $latest) { Write-Log "NVIDIA : aucun pilote renvoyé pour $($ids.Name)" 'WARN'; continue }
-        Write-Log "NVIDIA : dernière version disponible $($latest.Version)"
+        Write-Log "NVIDIA : dernière version disponible $($latest.Version) ($($latest.Name))"
 
         if ((Compare-DriverVersion -A $latest.Version -B $current) -eq 1) {
             $sizeMB = Get-NvidiaDownloadSize -Url $latest.Url -SizeText $latest.Size
@@ -108,9 +112,9 @@ function Install-NvidiaDriver {
 
     $file = Join-Path $script:DownloadDir ('nvidia-{0}.exe' -f $Version)
     Write-Log "NVIDIA : téléchargement de $Url"
-    $ProgressPreference = 'SilentlyContinue'   # sinon Invoke-WebRequest est très lent en 5.1
-    Invoke-WebRequest -Uri $Url -OutFile $file -UseBasicParsing -UserAgent $script:UserAgent
+    Invoke-FileDownload -Url $Url -OutFile $file -Label "pilote NVIDIA $Version"
 
+    Set-TaskProgress -Stage 'Vérification de la signature numérique du pilote NVIDIA'
     $sig = Get-AuthenticodeSignature -FilePath $file
     if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'NVIDIA Corporation') {
         Remove-Item -Path $file -Force -ErrorAction SilentlyContinue
@@ -119,6 +123,7 @@ function Install-NvidiaDriver {
     Write-Log "NVIDIA : signature valide ($($sig.SignerCertificate.Subject))"
 
     Write-Log 'NVIDIA : installation silencieuse en cours...'
+    Set-TaskProgress -Stage "Installation du pilote NVIDIA $Version" -Detail 'l''écran peut devenir noir quelques secondes'
     $proc = Start-Process -FilePath $file -ArgumentList '-s', '-noreboot', '-noeula' -Wait -PassThru
     Write-Log "NVIDIA : installateur terminé, code de sortie $($proc.ExitCode)"
 

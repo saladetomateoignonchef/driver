@@ -2,17 +2,23 @@
 #  Common.ps1 - Fonctions communes : dossiers, journalisation, droits, versions
 # =============================================================================
 
-$script:AppName     = 'DriverUpdater'
-$script:DataDir     = Join-Path $env:ProgramData 'DriverUpdater'
-$script:LogDir      = Join-Path $script:DataDir 'logs'
-$script:DownloadDir = Join-Path $script:DataDir 'downloads'
-$script:UserAgent   = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) DriverUpdater/1.0'
+$script:AppName      = 'DriverUpdater'
+$script:AppVersion   = '2.0.0'                              # doit correspondre au tag GitHub (v2.0.0)
+$script:GitHubRepo   = 'saladetomateoignonchef/driver'
+$script:DataDir      = Join-Path $env:ProgramData 'DriverUpdater'
+$script:LogDir       = Join-Path $script:DataDir 'logs'
+$script:DownloadDir  = Join-Path $script:DataDir 'downloads'
+$script:BackupDir    = Join-Path $script:DataDir 'backups'
+$script:SettingsFile = Join-Path $script:DataDir 'settings.json'
+$script:HistoryFile  = Join-Path $script:DataDir 'history.json'
+$script:ProgressFile = Join-Path $script:DataDir 'progress.json'
+$script:UserAgent    = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) DriverUpdater/$($script:AppVersion)"
 
 # Windows PowerShell 5.1 : on force TLS 1.2 pour les sites constructeurs
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
 function Initialize-AppFolder {
-    foreach ($dir in @($script:DataDir, $script:LogDir, $script:DownloadDir)) {
+    foreach ($dir in @($script:DataDir, $script:LogDir, $script:DownloadDir, $script:BackupDir)) {
         if (-not (Test-Path -Path $dir)) {
             New-Item -ItemType Directory -Path $dir -Force | Out-Null
         }
@@ -90,4 +96,168 @@ function New-UpdateCandidate {
         Key            = $Key             # URL (NVIDIA) ou UpdateID (Windows Update)
         Title          = $Title
     }
+}
+
+# =============================================================================
+#  Paramètres (C:\ProgramData\DriverUpdater\settings.json)
+# =============================================================================
+
+function Get-DefaultSettings {
+    [pscustomobject]@{
+        CheckFrequency  = 'Startup'     # Startup | Daily | Weekly | Never
+        Notifications   = $true         # notification au démarrage au lieu d'ouvrir la fenêtre
+        NvidiaBranch    = 'GameReady'   # GameReady | Studio
+        Theme           = 'Light'       # Light | Dark
+        BackupKeep      = 2             # nombre de sauvegardes gardées par pilote
+        AutoUpdateCheck = $true         # vérifier les nouvelles versions de Driver
+        IgnoredUpdates  = @()           # { Device, NewVersion, Date }
+        LastCheck       = $null         # date de la dernière vérification automatique
+    }
+}
+
+function Get-AppSettings {
+    $settings = Get-DefaultSettings
+    if (Test-Path -Path $script:SettingsFile) {
+        try {
+            $saved = Get-Content -Path $script:SettingsFile -Raw -Encoding UTF8 | ConvertFrom-Json
+            foreach ($p in $saved.PSObject.Properties) {
+                if ($settings.PSObject.Properties[$p.Name]) { $settings.($p.Name) = $p.Value }
+            }
+        } catch {
+            Write-Log "Paramètres illisibles, valeurs par défaut utilisées : $($_.Exception.Message)" 'WARN'
+        }
+    }
+    $settings.IgnoredUpdates = @($settings.IgnoredUpdates | Where-Object { $_ })
+    return $settings
+}
+
+function Save-AppSettings {
+    param([Parameter(Mandatory)][object]$Settings)
+    $Settings | ConvertTo-Json -Depth 4 | Set-Content -Path $script:SettingsFile -Encoding UTF8
+}
+
+function Test-CheckDue {
+    <# La vérification automatique doit-elle avoir lieu maintenant (selon la fréquence choisie) ? #>
+    param([Parameter(Mandatory)][object]$Settings, [datetime]$Now = (Get-Date))
+    $last = $null
+    if ($Settings.LastCheck) { try { $last = [datetime]$Settings.LastCheck } catch { $last = $null } }
+    switch ($Settings.CheckFrequency) {
+        'Never'  { return $false }
+        'Daily'  { return (-not $last) -or (($Now - $last).TotalHours -ge 20) }
+        'Weekly' { return (-not $last) -or (($Now - $last).TotalDays -ge 6.5) }
+        default  { return $true }
+    }
+}
+
+function Test-UpdateIgnored {
+    <# Une mise à jour est ignorée pour CETTE version : une version plus récente sera de nouveau proposée. #>
+    param([Parameter(Mandatory)][object]$Candidate, [Parameter(Mandatory)][object]$Settings)
+    return @($Settings.IgnoredUpdates | Where-Object {
+        $_.Device -eq $Candidate.Device -and $_.NewVersion -eq $Candidate.NewVersion
+    }).Count -gt 0
+}
+
+function Add-IgnoredUpdate {
+    param([Parameter(Mandatory)][object]$Candidate, [Parameter(Mandatory)][object]$Settings)
+    if (Test-UpdateIgnored -Candidate $Candidate -Settings $Settings) { return }
+    $Settings.IgnoredUpdates = @($Settings.IgnoredUpdates) + @([pscustomobject]@{
+        Device = $Candidate.Device; NewVersion = $Candidate.NewVersion; Date = (Get-Date).ToString('s')
+    })
+    Save-AppSettings -Settings $Settings
+    Write-Log "Mise à jour ignorée : $($Candidate.Device) $($Candidate.NewVersion)"
+}
+
+function Remove-IgnoredUpdate {
+    param([Parameter(Mandatory)][string]$Device, [string]$NewVersion, [Parameter(Mandatory)][object]$Settings)
+    $Settings.IgnoredUpdates = @($Settings.IgnoredUpdates | Where-Object { -not ($_.Device -eq $Device -and $_.NewVersion -eq $NewVersion) })
+    Save-AppSettings -Settings $Settings
+    Write-Log "Mise à jour de nouveau proposée : $Device $NewVersion"
+}
+
+# =============================================================================
+#  Progression des tâches de fond (lue par la fenêtre toutes les 500 ms)
+# =============================================================================
+
+function Set-TaskProgress {
+    param([string]$Stage, [int]$Percent = -1, [string]$Detail)
+    try {
+        $json = [pscustomobject]@{ Stage = $Stage; Percent = $Percent; Detail = $Detail } | ConvertTo-Json -Compress
+        [IO.File]::WriteAllText($script:ProgressFile, $json)
+    } catch { }   # la fenêtre lit peut-être le fichier au même moment : sans gravité
+}
+
+function Get-TaskProgress {
+    if (-not (Test-Path -Path $script:ProgressFile)) { return $null }
+    try { return ([IO.File]::ReadAllText($script:ProgressFile) | ConvertFrom-Json) } catch { return $null }
+}
+
+function Clear-TaskProgress {
+    Remove-Item -Path $script:ProgressFile -Force -ErrorAction SilentlyContinue
+}
+
+function Invoke-FileDownload {
+    <# Téléchargement par blocs de 1 Mo, avec progression (%, Mo, Mo/s) pour la fenêtre. #>
+    param([Parameter(Mandatory)][string]$Url, [Parameter(Mandatory)][string]$OutFile, [string]$Label = 'fichier')
+
+    $request = [System.Net.HttpWebRequest]::Create($Url)
+    $request.UserAgent        = $script:UserAgent
+    $request.Timeout          = 30000
+    $request.ReadWriteTimeout = 60000
+    $response = $request.GetResponse()
+    try {
+        $total  = $response.ContentLength
+        $stream = $response.GetResponseStream()
+        $output = [IO.File]::Create($OutFile)
+        try {
+            $buffer = New-Object byte[] (1MB)
+            $done   = 0L
+            $watch  = [Diagnostics.Stopwatch]::StartNew()
+            $last   = -1000
+            while (($read = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                $output.Write($buffer, 0, $read)
+                $done += $read
+                if (($watch.ElapsedMilliseconds - $last) -ge 500) {
+                    $last  = $watch.ElapsedMilliseconds
+                    $speed = $done / 1MB / [math]::Max($watch.Elapsed.TotalSeconds, 0.001)
+                    if ($total -gt 0) {
+                        $pct    = [int][math]::Floor($done * 100 / $total)
+                        $detail = '{0} % · {1:N0} / {2:N0} Mo · {3:N1} Mo/s' -f $pct, ($done / 1MB), ($total / 1MB), $speed
+                    } else {
+                        $pct    = -1
+                        $detail = '{0:N0} Mo · {1:N1} Mo/s' -f ($done / 1MB), $speed
+                    }
+                    Set-TaskProgress -Stage "Téléchargement : $Label" -Percent $pct -Detail $detail
+                }
+            }
+        } finally {
+            $output.Dispose()
+            $stream.Dispose()
+        }
+    } finally {
+        $response.Dispose()
+    }
+    Write-Log ("Téléchargé : {0} ({1:N0} Mo)" -f $Label, ((Get-Item $OutFile).Length / 1MB))
+}
+
+# =============================================================================
+#  Nettoyage : journaux et téléchargements de plus de 30 jours
+#  (les sauvegardes de pilotes ont leur propre limite, voir Backup.ps1)
+# =============================================================================
+
+function Clear-OldFiles {
+    param([int]$Days = 30)
+    $limit = (Get-Date).AddDays(-$Days)
+    $old = @()
+    $old += @(Get-ChildItem -Path $script:LogDir -Filter '*.log' -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -lt $limit })
+    $old += @(Get-ChildItem -Path $script:DownloadDir -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -lt $limit })
+    if ($old.Count -eq 0) { return }
+
+    $sizeMB = ($old | Measure-Object -Property Length -Sum).Sum / 1MB
+    $old | Remove-Item -Force -ErrorAction SilentlyContinue
+    # Dossiers devenus vides (les plus profonds d'abord)
+    Get-ChildItem -Path $script:DownloadDir -Recurse -Directory -ErrorAction SilentlyContinue |
+        Sort-Object { $_.FullName.Length } -Descending |
+        Where-Object { -not (Get-ChildItem -Path $_.FullName -Force -ErrorAction SilentlyContinue) } |
+        Remove-Item -Force -ErrorAction SilentlyContinue
+    Write-Log ("Nettoyage : {0} fichier(s) de plus de {1} jours supprimé(s) ({2:N0} Mo libérés)" -f $old.Count, $Days, $sizeMB)
 }

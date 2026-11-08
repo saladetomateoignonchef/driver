@@ -1,0 +1,67 @@
+﻿# =============================================================================
+#  SelfUpdate.ps1 - Mise à jour de Driver lui-même depuis GitHub
+#
+#  Chaque version est publiée sur GitHub (onglet "Releases") par GitHub Actions
+#  quand un tag vX.Y.Z est créé : le ZIP n'est publié que si les tests passent.
+#  L'application compare sa version ($AppVersion) à la dernière publiée, puis
+#  télécharge le ZIP et relance Install.ps1, qui remplace les fichiers dans
+#  C:\Program Files\DriverUpdater.
+# =============================================================================
+
+function Get-LatestAppRelease {
+    $uri = "https://api.github.com/repos/$($script:GitHubRepo)/releases/latest"
+    $rel = Invoke-RestMethod -Uri $uri -UseBasicParsing -TimeoutSec 6 -Headers @{
+        'User-Agent' = $script:UserAgent
+        'Accept'     = 'application/vnd.github+json'
+    }
+    $asset = @($rel.assets | Where-Object { $_.name -like '*.zip' }) | Select-Object -First 1
+    [pscustomobject]@{
+        Version  = ([string]$rel.tag_name).TrimStart('v', 'V')
+        Tag      = [string]$rel.tag_name
+        Notes    = [string]$rel.body
+        PageUrl  = [string]$rel.html_url
+        AssetUrl = if ($asset) { [string]$asset.browser_download_url } else { $null }
+    }
+}
+
+function Test-AppUpdate {
+    <# Renvoie la version publiée si elle est plus récente que celle installée, sinon $null. #>
+    try {
+        $latest = Get-LatestAppRelease
+        if ($latest.AssetUrl -and (Compare-DriverVersion -A $latest.Version -B $script:AppVersion) -eq 1) {
+            Write-Log "Nouvelle version de Driver disponible : $($latest.Version) (installée : $($script:AppVersion))"
+            return $latest
+        }
+    } catch {
+        Write-Log "Vérification des versions de Driver impossible : $($_.Exception.Message)" 'WARN'
+    }
+    return $null
+}
+
+function Install-AppUpdate {
+    param([Parameter(Mandatory)][string]$AssetUrl, [Parameter(Mandatory)][string]$Version)
+
+    $work = Join-Path $script:DownloadDir "driver-update-$Version"
+    if (Test-Path $work) { Remove-Item -Path $work -Recurse -Force }
+    New-Item -ItemType Directory -Path $work -Force | Out-Null
+    $zip = Join-Path $work 'driver.zip'
+
+    Invoke-FileDownload -Url $AssetUrl -OutFile $zip -Label "Driver $Version"
+    Set-TaskProgress -Stage "Installation de Driver $Version"
+    Expand-Archive -Path $zip -DestinationPath (Join-Path $work 'files') -Force
+    Get-ChildItem -Path $work -Recurse -File | Unblock-File
+
+    $installer = Get-ChildItem -Path (Join-Path $work 'files') -Recurse -Filter 'Install.ps1' -File | Select-Object -First 1
+    if (-not $installer) { throw 'Install.ps1 introuvable dans le ZIP téléchargé.' }
+
+    Write-Log "Mise à jour de Driver : lancement de $($installer.FullName)"
+    $p = Start-Process -FilePath 'powershell.exe' -Wait -PassThru -WindowStyle Hidden -ArgumentList @(
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$($installer.FullName)`"", '-Silent')
+    Write-Log "Mise à jour de Driver : Install.ps1 terminé (code $($p.ExitCode))"
+
+    [pscustomobject]@{
+        Device = "Driver $Version"; Success = ($p.ExitCode -eq 0); RebootRequired = $false
+        Message = if ($p.ExitCode -eq 0) { "Driver mis à jour en version $Version" } else { "Échec de la mise à jour (code $($p.ExitCode))" }
+        SelfUpdate = $true
+    }
+}

@@ -1,0 +1,93 @@
+# Tests automatiques sur un vrai Windows à chaque modification.
+# Quand un tag vX.Y.Z est poussé et que les tests passent, le ZIP de la
+# version est publié dans l'onglet "Releases" : c'est là que Driver va
+# chercher ses mises à jour.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Syntaxe des scripts (Windows PowerShell 5.1)
+        shell: powershell
+        run: |
+          $errors = 0
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+            $tokens = $null; $parseErrors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$parseErrors)
+            foreach ($e in $parseErrors) {
+              Write-Host "::error file=$($_.Name),line=$($e.Extent.StartLineNumber)::$($e.Message)"
+              $errors++
+            }
+          }
+          if ($errors) { exit 1 }
+          Write-Host 'Aucune erreur de syntaxe.'
+
+      - name: Chargement de l'interface (XAML + code C#)
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          try {
+            $script:AppRoot = (Get-Location).Path
+            . .\src\Loader.ps1
+            . .\src\Gui.ps1
+            [xml]$xaml = Get-Content .\src\MainWindow.xaml -Raw -Encoding UTF8
+            $window = [System.Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
+            foreach ($node in $xaml.SelectNodes('//*[@*[local-name()="Name"]]')) {
+              $n = $node.GetAttribute('Name', 'http://schemas.microsoft.com/winfx/2006/xaml')
+              if ($n -and -not $window.FindName($n)) { throw "Élément introuvable : $n" }
+            }
+            foreach ($k in @('Card', 'CardWarn', 'BtnSmall', 'BtnPrimary', 'BtnLink', 'Check')) { [void]$window.FindResource($k) }
+            foreach ($kind in @('gpu', 'audio', 'effect', 'net', 'chipset', 'bt', 'storage', 'other')) { [void](New-IconBadge $kind) }
+            [void](New-Pill 'À jour' $false); [void](New-VersionText '610.88' '621.14'); [void](New-Text 'test' 12 'Muted')
+            [void](New-Columns @('Auto', '*', '80'))
+            Initialize-NewDevApi
+            Write-Host "Interface chargée : $($window.Title)"
+          } catch {
+            Write-Host "::error::$($_.Exception.Message) $($_.InvocationInfo.PositionMessage)"
+            exit 1
+          }
+
+      - name: Tests unitaires (Pester 5)
+        shell: powershell
+        run: |
+          Install-Module Pester -MinimumVersion 5.5 -Force -SkipPublisherCheck -Scope CurrentUser
+          Import-Module Pester -MinimumVersion 5.5
+          $r = Invoke-Pester -Path .\tests -PassThru -Output Detailed
+          foreach ($t in $r.Failed) { Write-Host "::error::$($t.ExpandedPath) : $($t.ErrorRecord.Exception.Message)" }
+          if ($r.FailedCount -gt 0) { exit 1 }
+
+      - name: Version cohérente avec le tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: powershell
+        run: |
+          . .\src\Common.ps1
+          $tag = '${{ github.ref_name }}'.TrimStart('v')
+          if ($tag -ne $AppVersion) { Write-Host "::error::Le tag ($tag) ne correspond pas à AppVersion ($AppVersion)"; exit 1 }
+
+  release:
+    needs: tests
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Création du ZIP
+        run: |
+          mkdir -p dist/driver
+          cp -r DriverUpdater.ps1 Install.ps1 Uninstall.ps1 README.md LICENSE src dist/driver/
+          cd dist && zip -r "driver-${GITHUB_REF_NAME}.zip" driver
+      - name: Publication de la version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "dist/driver-${GITHUB_REF_NAME}.zip" --title "Driver $GITHUB_REF_NAME" --generate-notes

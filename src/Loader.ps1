@@ -5,3 +5,7 @@
 . (Join-Path $PSScriptRoot 'Providers\WindowsUpdate.ps1')
 . (Join-Path $PSScriptRoot 'Core.ps1')
 . (Join-Path $PSScriptRoot 'ManualPackage.ps1')
+. (Join-Path $PSScriptRoot 'Backup.ps1')
+. (Join-Path $PSScriptRoot 'History.ps1')
+. (Join-Path $PSScriptRoot 'SelfUpdate.ps1')
+. (Join-Path $PSScriptRoot 'Notify.ps1')

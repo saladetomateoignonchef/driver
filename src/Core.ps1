@@ -12,6 +12,7 @@ function Find-DriverUpdate {
     $nvidiaDone = $false
 
     # 1) Fournisseur NVIDIA (prioritaire pour la carte graphique)
+    Set-TaskProgress -Stage 'Analyse : interrogation du site NVIDIA'
     try {
         foreach ($c in @(Get-NvidiaUpdate -Inventory $inventory)) { if ($c) { $results.Add($c) } }
         $nvidiaDone = $true
@@ -20,6 +21,7 @@ function Find-DriverUpdate {
     }
 
     # 2) Windows Update (filet de sécurité pour tout le reste)
+    Set-TaskProgress -Stage 'Analyse : recherche des pilotes sur Windows Update' -Detail 'peut prendre 1 à 2 minutes'
     try {
         foreach ($c in @(Get-WindowsUpdateDriverUpdate -Inventory $inventory)) {
             if (-not $c) { continue }
@@ -48,14 +50,35 @@ function New-DriverRestorePoint {
     }
 }
 
+function Backup-BeforeInstall {
+    <# Sauvegarde le pilote actuel des périphériques concernés (selon la limite des paramètres). #>
+    param([string[]]$DeviceName, [object[]]$Inventory)
+    $keep = [int](Get-AppSettings).BackupKeep
+    foreach ($name in @($DeviceName | Where-Object { $_ } | Select-Object -Unique)) {
+        $dev = $Inventory | Where-Object { $_.Name -eq $name } | Select-Object -First 1
+        if (-not $dev) { Write-Log "Sauvegarde : périphérique '$name' introuvable dans l'inventaire" 'WARN'; continue }
+        try { [void](Backup-DeviceDriver -Device $dev -Keep $keep) }
+        catch { Write-Log "Sauvegarde de $name impossible : $($_.Exception.Message)" 'WARN' }
+    }
+}
+
 function Install-DriverUpdate {
-    <# Installe les mises à jour validées par l'utilisateur. Renvoie un résultat par pilote. #>
+    <#
+        Installe les mises à jour validées par l'utilisateur. Pour chaque pilote :
+        sauvegarde de la version actuelle -> installation -> historique.
+        Renvoie un résultat par pilote.
+    #>
     param(
         [Parameter(Mandatory)][object[]]$Candidate,
         [switch]$CreateRestorePoint
     )
 
-    if ($CreateRestorePoint) { [void](New-DriverRestorePoint) }
+    if ($CreateRestorePoint) {
+        Set-TaskProgress -Stage 'Création du point de restauration'
+        [void](New-DriverRestorePoint)
+    }
+    $inventory = @(Get-DeviceInventory)
+    Backup-BeforeInstall -DeviceName ($Candidate | ForEach-Object { $_.Device }) -Inventory $inventory
 
     $nvidia = @($Candidate | Where-Object { $_.Source -eq 'NVIDIA' })
     $wu     = @($Candidate | Where-Object { $_.Source -eq 'Windows Update' })
@@ -63,22 +86,35 @@ function Install-DriverUpdate {
     foreach ($c in $nvidia) {
         try {
             $r = Install-NvidiaDriver -Url $c.Key -Version $c.NewVersion
-            [pscustomobject]@{ Device = $c.Device; Success = $r.Success; RebootRequired = $r.RebootRequired; Message = $r.Message }
+            $res = [pscustomobject]@{ Device = $c.Device; Success = $r.Success; RebootRequired = $r.RebootRequired; Message = $r.Message }
         } catch {
             Write-Log "NVIDIA : échec de l'installation : $($_.Exception.Message)" 'ERREUR'
-            [pscustomobject]@{ Device = $c.Device; Success = $false; RebootRequired = $false; Message = $_.Exception.Message }
+            $res = [pscustomobject]@{ Device = $c.Device; Success = $false; RebootRequired = $false; Message = $_.Exception.Message }
         }
+        Add-HistoryEntry -Type 'Installation' -Device $c.Device -Source 'NVIDIA' -OldVersion $c.CurrentVersion `
+            -NewVersion $c.NewVersion -Success $res.Success -Message $res.Message
+        $res
     }
 
     if ($wu.Count -gt 0) {
+        Set-TaskProgress -Stage "Windows Update : téléchargement et installation de $($wu.Count) pilote(s)"
         try {
             foreach ($r in @(Install-WindowsUpdateDriver -UpdateId ($wu | ForEach-Object { $_.Key }))) {
                 Write-Log "Windows Update : $($r.Title) -> $($r.Message)"
-                [pscustomobject]@{ Device = $r.Title; Success = $r.Success; RebootRequired = $r.RebootRequired; Message = $r.Message }
+                $c = $wu | Where-Object { $_.Title -eq $r.Title } | Select-Object -First 1
+                $device = if ($c) { $c.Device } else { $r.Title }
+                Add-HistoryEntry -Type 'Installation' -Device $device -Source 'Windows Update' -OldVersion $c.CurrentVersion `
+                    -NewVersion $c.NewVersion -Success $r.Success -Message $r.Message
+                [pscustomobject]@{ Device = $device; Success = $r.Success; RebootRequired = $r.RebootRequired; Message = $r.Message }
             }
         } catch {
             Write-Log "Windows Update : échec de l'installation : $($_.Exception.Message)" 'ERREUR'
+            foreach ($c in $wu) {
+                Add-HistoryEntry -Type 'Installation' -Device $c.Device -Source 'Windows Update' -OldVersion $c.CurrentVersion `
+                    -NewVersion $c.NewVersion -Success $false -Message $_.Exception.Message
+            }
             [pscustomobject]@{ Device = 'Windows Update'; Success = $false; RebootRequired = $false; Message = $_.Exception.Message }
         }
     }
+    Clear-TaskProgress
 }

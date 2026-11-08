@@ -24,6 +24,7 @@ function Get-DeviceInventory {
                 DriverVersion = $_.DriverVersion
                 DriverDate    = $_.DriverDate
                 HardwareId    = $hwid
+                InfName       = $_.InfName       # ex. oem42.inf : nom du paquet dans le magasin de pilotes
                 VendorId      = $vendorId
                 DeviceId      = $deviceId
             }

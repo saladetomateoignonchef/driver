@@ -194,6 +194,7 @@ function Install-InfDriver {
 
     $pnputil = Join-Path $env:SystemRoot 'System32\pnputil.exe'
     foreach ($d in $Driver) {
+        Set-TaskProgress -Stage "Installation de $($d.InfName)" -Detail "$($d.Device) : $($d.CurrentVersion) -> $($d.PackageVersion)"
         Write-Log "pnputil : installation de $($d.Inf)"
         $out  = & $pnputil /add-driver "$($d.Inf)" /install 2>&1 | Out-String
         $code = $LASTEXITCODE
@@ -205,6 +206,8 @@ function Install-InfDriver {
             259     { 'Ajouté, mais Windows a gardé le pilote actuel (déjà équivalent ou plus récent)' }
             default { "Échec, code pnputil $code (voir journal)" }
         }
+        Add-HistoryEntry -Type 'Paquet' -Device $d.Device -Source $d.InfName -OldVersion $d.CurrentVersion `
+            -NewVersion $d.PackageVersion -Success ($code -in @(0, 3010, 259)) -Message $msg
         [pscustomobject]@{
             Device         = "$($d.Device) [$($d.InfName)]"
             Success        = ($code -in @(0, 3010, 259))
@@ -218,16 +221,28 @@ function Install-DriverPackage {
     <# Installe un paquet analysé : les .inf plus récents, sinon le setup.exe (signé uniquement). #>
     param([Parameter(Mandatory)][object]$Analysis, [switch]$CreateRestorePoint)
 
-    if ($CreateRestorePoint) { [void](New-DriverRestorePoint) }
+    if ($CreateRestorePoint) {
+        Set-TaskProgress -Stage 'Création du point de restauration'
+        [void](New-DriverRestorePoint)
+    }
 
     $toInstall = @($Analysis.Drivers | Where-Object { $_.IsNewer })
     if ($toInstall.Count -gt 0) {
-        return Install-InfDriver -Driver $toInstall
+        # Sauvegarde des pilotes actuels des périphériques concernés
+        $names = @($toInstall | ForEach-Object { $_.Device -split ', ' })
+        Backup-BeforeInstall -DeviceName $names -Inventory @(Get-DeviceInventory)
+        $results = @(Install-InfDriver -Driver $toInstall)
+        Clear-TaskProgress
+        return $results
     }
 
     if ($Analysis.Setup -and $Analysis.SetupSigned) {
         Write-Log "Paquet manuel : lancement de $($Analysis.Setup)"
+        Set-TaskProgress -Stage "Installateur du constructeur en cours : $(Split-Path $Analysis.Setup -Leaf)" -Detail 'suis ses étapes dans sa fenêtre'
         $p = Start-Process -FilePath $Analysis.Setup -WorkingDirectory (Split-Path $Analysis.Setup -Parent) -Wait -PassThru
+        Clear-TaskProgress
+        Add-HistoryEntry -Type 'Paquet' -Device (Split-Path $Analysis.Source -Leaf) -Source 'setup.exe' `
+            -Success ($p.ExitCode -in @(0, 3010)) -Message "Installateur terminé (code $($p.ExitCode))"
         return [pscustomobject]@{
             Device         = Split-Path $Analysis.Source -Leaf
             Success        = ($p.ExitCode -in @(0, 3010))

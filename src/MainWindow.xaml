@@ -1,15 +1,32 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Driver" Width="1180" Height="780" MinWidth="1000" MinHeight="660"
-        WindowStartupLocation="CenterScreen" Background="#F4F6F8"
-        FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" Foreground="#17202A"
+        Title="Driver" Width="1200" Height="800" MinWidth="1020" MinHeight="680"
+        WindowStartupLocation="CenterScreen" Background="{DynamicResource BgBrush}"
+        FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" Foreground="{DynamicResource TextBrush}"
         UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
   <Window.Resources>
 
+    <!-- ===== Palette (remplacée par Set-Theme pour le thème sombre) ===== -->
+    <SolidColorBrush x:Key="BgBrush" Color="#F4F6F8"/>
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="SurfaceAltBrush" Color="#F8FAFC"/>
+    <SolidColorBrush x:Key="LineBrush" Color="#E3E8ED"/>
+    <SolidColorBrush x:Key="TextBrush" Color="#17202A"/>
+    <SolidColorBrush x:Key="MutedBrush" Color="#5D6B78"/>
+    <SolidColorBrush x:Key="BtnLineBrush" Color="#D3DAE1"/>
+    <SolidColorBrush x:Key="ChipBrush" Color="#F1F5F9"/>
+    <SolidColorBrush x:Key="ChipTextBrush" Color="#334155"/>
+    <SolidColorBrush x:Key="ToggleOffBrush" Color="#CBD5E1"/>
+    <SolidColorBrush x:Key="DropLineBrush" Color="#9FB3C5"/>
+    <SolidColorBrush x:Key="SelectedBrush" Color="#E6F4F1"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="#0F766E"/>
+    <SolidColorBrush x:Key="BannerBrush" Color="#CCFBF1"/>
+    <SolidColorBrush x:Key="BannerTextBrush" Color="#134E4A"/>
+
     <!-- ===== Cartes ===== -->
     <Style x:Key="Card" TargetType="Border">
-      <Setter Property="Background" Value="White"/>
-      <Setter Property="BorderBrush" Value="#E3E8ED"/>
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="12"/>
       <Setter Property="Padding" Value="16,14"/>
@@ -19,7 +36,12 @@
       <Setter Property="BorderThickness" Value="1.5"/>
     </Style>
     <Style x:Key="Muted" TargetType="TextBlock">
-      <Setter Property="Foreground" Value="#5D6B78"/>
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}"/>
+    </Style>
+    <Style x:Key="SectionTitle" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="14.5"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
     </Style>
 
     <!-- ===== Boutons ===== -->
@@ -27,9 +49,9 @@
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Padding" Value="16,9"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Background" Value="White"/>
-      <Setter Property="Foreground" Value="#17202A"/>
-      <Setter Property="BorderBrush" Value="#D3DAE1"/>
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BtnLineBrush}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="Template">
         <Setter.Value>
@@ -51,6 +73,27 @@
       <Setter Property="Foreground" Value="White"/>
       <Setter Property="BorderBrush" Value="#0F766E"/>
     </Style>
+    <Style x:Key="BtnSmall" TargetType="Button" BasedOn="{StaticResource BtnBase}">
+      <Setter Property="Padding" Value="11,5"/>
+      <Setter Property="FontSize" Value="12"/>
+    </Style>
+    <Style x:Key="BtnLink" TargetType="Button">
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="bd" Background="Transparent" Padding="6,4">
+              <ContentPresenter VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Opacity" Value="0.7"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
 
     <!-- ===== Menu de gauche ===== -->
     <Style x:Key="Nav" TargetType="Button">
@@ -58,8 +101,8 @@
       <Setter Property="Foreground" Value="#B8C7D6"/>
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="FontSize" Value="13.5"/>
-      <Setter Property="Padding" Value="12,10"/>
-      <Setter Property="Margin" Value="0,0,0,4"/>
+      <Setter Property="Padding" Value="12,9"/>
+      <Setter Property="Margin" Value="0,0,0,3"/>
       <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
       <Setter Property="Template">
         <Setter.Value>
@@ -69,21 +112,22 @@
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="#1A3249"/></Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="bd" Property="Opacity" Value="0.45"/></Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
         </Setter.Value>
       </Setter>
     </Style>
 
-    <!-- ===== Interrupteur (point de restauration) ===== -->
+    <!-- ===== Interrupteur ===== -->
     <Style x:Key="Toggle" TargetType="CheckBox">
       <Setter Property="Cursor" Value="Hand"/>
-      <Setter Property="Foreground" Value="#17202A"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="CheckBox">
             <StackPanel Orientation="Horizontal" Background="Transparent">
-              <Border x:Name="track" Width="40" Height="22" CornerRadius="11" Background="#CBD5E1">
+              <Border x:Name="track" Width="40" Height="22" CornerRadius="11" Background="{DynamicResource ToggleOffBrush}">
                 <Ellipse x:Name="knob" Width="16" Height="16" Fill="White" HorizontalAlignment="Left" Margin="3,0,0,0"/>
               </Border>
               <ContentPresenter Margin="10,0,0,0" VerticalAlignment="Center"/>
@@ -100,13 +144,38 @@
       </Setter>
     </Style>
 
+    <!-- ===== Choix segmenté (paramètres) ===== -->
+    <Style x:Key="Segment" TargetType="RadioButton">
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+      <Setter Property="Margin" Value="0,0,8,0"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="bd" CornerRadius="8" Padding="14,7" BorderThickness="1"
+                    Background="{DynamicResource SurfaceAltBrush}" BorderBrush="{DynamicResource BtnLineBrush}">
+              <ContentPresenter x:Name="cp" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="bd" Property="Background" Value="#0F766E"/>
+                <Setter TargetName="bd" Property="BorderBrush" Value="#0F766E"/>
+                <Setter Property="Foreground" Value="White"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
     <!-- ===== Case à cocher des lignes ===== -->
     <Style x:Key="Check" TargetType="CheckBox">
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="CheckBox">
-            <Border x:Name="box" Width="20" Height="20" CornerRadius="5" BorderBrush="#9FB3C5" BorderThickness="1.5" Background="White">
+            <Border x:Name="box" Width="20" Height="20" CornerRadius="5" BorderBrush="{DynamicResource DropLineBrush}"
+                    BorderThickness="1.5" Background="{DynamicResource SurfaceBrush}">
               <Path x:Name="mark" Data="M4,10 L8,14 L16,6" Stroke="White" StrokeThickness="2.2" Visibility="Collapsed"
                     Stretch="None" Margin="-1.5,-1.5,0,0"/>
             </Border>
@@ -122,28 +191,44 @@
       </Setter>
     </Style>
 
-    <!-- ===== Tableau "Tous les pilotes" ===== -->
+    <!-- ===== Tableaux ===== -->
     <Style x:Key="CellText" TargetType="TextBlock">
       <Setter Property="Margin" Value="14,0"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
       <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
     </Style>
+    <Style TargetType="DataGrid">
+      <Setter Property="AutoGenerateColumns" Value="False"/>
+      <Setter Property="IsReadOnly" Value="True"/>
+      <Setter Property="HeadersVisibility" Value="Column"/>
+      <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+      <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource LineBrush}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="RowBackground" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="AlternatingRowBackground" Value="{DynamicResource SurfaceAltBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+      <Setter Property="CanUserAddRows" Value="False"/>
+      <Setter Property="SelectionMode" Value="Single"/>
+      <Setter Property="RowHeight" Value="36"/>
+      <Setter Property="Margin" Value="1"/>
+    </Style>
     <Style TargetType="DataGridColumnHeader">
-      <Setter Property="Background" Value="#F8FAFC"/>
-      <Setter Property="Foreground" Value="#5D6B78"/>
+      <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Padding" Value="14,0"/>
       <Setter Property="Height" Value="38"/>
-      <Setter Property="BorderBrush" Value="#E3E8ED"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
       <Setter Property="BorderThickness" Value="0,0,0,1"/>
     </Style>
     <Style TargetType="DataGridCell">
       <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="Foreground" Value="#17202A"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
       <Style.Triggers>
         <Trigger Property="IsSelected" Value="True">
-          <Setter Property="Background" Value="#E6F4F1"/>
-          <Setter Property="Foreground" Value="#17202A"/>
+          <Setter Property="Background" Value="{DynamicResource SelectedBrush}"/>
+          <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
         </Trigger>
       </Style.Triggers>
     </Style>
@@ -158,16 +243,14 @@
     <!-- ================= Menu de gauche ================= -->
     <Border Background="#12263A">
       <DockPanel Margin="14,20,14,16" LastChildFill="False">
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,0,0,24">
-          <Border Width="30" Height="30" CornerRadius="8" Background="#2DD4BF">
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,0,0,22">
+          <Border x:Name="LogoBox" Width="30" Height="30" CornerRadius="8" Background="#2DD4BF">
             <Path Data="M8,15 L13,20 L22,10" Stroke="#0B1F33" StrokeThickness="2.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="None"/>
           </Border>
           <TextBlock Text="Driver" Foreground="White" FontSize="20" FontWeight="Bold" Margin="11,0,0,0" VerticalAlignment="Center"/>
         </StackPanel>
 
-        <Button x:Name="NavDashboard" DockPanel.Dock="Top" Style="{StaticResource Nav}">
-          <TextBlock Text="Tableau de bord"/>
-        </Button>
+        <Button x:Name="NavDashboard" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Tableau de bord"/></Button>
         <Button x:Name="NavUpdates" DockPanel.Dock="Top" Style="{StaticResource Nav}">
           <Grid>
             <TextBlock Text="Mises à jour"/>
@@ -176,19 +259,14 @@
             </Border>
           </Grid>
         </Button>
-        <Button x:Name="NavAll" DockPanel.Dock="Top" Style="{StaticResource Nav}">
-          <TextBlock Text="Tous les pilotes"/>
-        </Button>
-        <Border DockPanel.Dock="Top" Height="1" Background="#21405C" Margin="10,10,10,14"/>
-        <Button x:Name="NavPackage" DockPanel.Dock="Top" Style="{StaticResource Nav}">
-          <TextBlock Text="Installer un paquet"/>
-        </Button>
-        <Button x:Name="NavBoard" DockPanel.Dock="Top" Style="{StaticResource Nav}">
-          <TextBlock Text="Site de la carte mère"/>
-        </Button>
-        <Button x:Name="NavLogs" DockPanel.Dock="Top" Style="{StaticResource Nav}">
-          <TextBlock Text="Journaux"/>
-        </Button>
+        <Button x:Name="NavAll" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Tous les pilotes"/></Button>
+        <Button x:Name="NavBackups" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Sauvegardes"/></Button>
+        <Button x:Name="NavHistory" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Historique"/></Button>
+        <Border DockPanel.Dock="Top" Height="1" Background="#21405C" Margin="10,10,10,13"/>
+        <Button x:Name="NavPackage" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Installer un paquet"/></Button>
+        <Button x:Name="NavBoard" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Site de la carte mère"/></Button>
+        <Button x:Name="NavLogs" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Journaux"/></Button>
+        <Button x:Name="NavSettings" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Paramètres"/></Button>
 
         <Border DockPanel.Dock="Bottom" Background="#1A3249" CornerRadius="10" Padding="14,12">
           <StackPanel>
@@ -200,18 +278,30 @@
     </Border>
 
     <!-- ================= Contenu ================= -->
-    <Grid Grid.Column="1" Margin="28,22,28,22">
+    <Grid Grid.Column="1" Margin="28,20,28,22">
       <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
         <RowDefinition Height="Auto"/>
         <RowDefinition Height="Auto"/>
         <RowDefinition Height="*"/>
       </Grid.RowDefinitions>
 
+      <!-- Bandeau : nouvelle version de Driver -->
+      <Border x:Name="AppUpdateBanner" Background="{DynamicResource BannerBrush}" CornerRadius="10" Padding="16,10" Margin="0,0,0,14" Visibility="Collapsed">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+            <Button x:Name="BtnAppUpdateLater" Content="Plus tard" Style="{StaticResource BtnLink}" Foreground="{DynamicResource BannerTextBrush}" Margin="0,0,6,0"/>
+            <Button x:Name="BtnAppUpdate" Content="Mettre à jour Driver" Style="{StaticResource BtnPrimary}" Padding="14,6"/>
+          </StackPanel>
+          <TextBlock x:Name="AppUpdateText" Foreground="{DynamicResource BannerTextBrush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+        </DockPanel>
+      </Border>
+
       <!-- En-tête -->
-      <Grid>
+      <Grid Grid.Row="1">
         <StackPanel>
           <TextBlock x:Name="PageTitle" Text="Tableau de bord" FontSize="24" FontWeight="Bold"/>
-          <TextBlock x:Name="StatusText" Style="{StaticResource Muted}" Margin="0,3,0,0" Text="Prêt"/>
+          <TextBlock x:Name="StatusText" Style="{StaticResource Muted}" Margin="0,3,0,0" Text="Prêt" TextTrimming="CharacterEllipsis"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
           <Button x:Name="BtnSearch" Content="Analyser" Style="{StaticResource BtnBase}" Margin="0,0,8,0"/>
@@ -219,10 +309,10 @@
         </StackPanel>
       </Grid>
 
-      <ProgressBar x:Name="Busy" Grid.Row="1" Height="3" IsIndeterminate="True" Visibility="Collapsed"
-                   Margin="0,12,0,0" Foreground="#0F766E" Background="#DCE7EA" BorderThickness="0"/>
+      <ProgressBar x:Name="Busy" Grid.Row="2" Height="4" IsIndeterminate="True" Visibility="Collapsed" Minimum="0" Maximum="100"
+                   Margin="0,12,0,0" Foreground="#0F766E" Background="{DynamicResource LineBrush}" BorderThickness="0"/>
 
-      <Grid Grid.Row="2" Margin="0,16,0,0">
+      <Grid Grid.Row="3" Margin="0,16,0,0">
 
         <!-- ===== Vue : tableau de bord ===== -->
         <Grid x:Name="ViewDashboard">
@@ -248,8 +338,7 @@
             <Border Style="{StaticResource Card}">
               <StackPanel>
                 <TextBlock Text="Point de restauration" Style="{StaticResource Muted}"/>
-                <CheckBox x:Name="ChkRestore" Style="{StaticResource Toggle}" IsChecked="True" Margin="0,11,0,0"
-                          Content="Avant chaque installation"/>
+                <CheckBox x:Name="ChkRestore" Style="{StaticResource Toggle}" IsChecked="True" Margin="0,11,0,0" Content="Avant chaque installation"/>
               </StackPanel>
             </Border>
           </UniformGrid>
@@ -264,7 +353,7 @@
               <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <Grid x:Name="DropZone" Cursor="Hand" Background="Transparent">
-              <Rectangle RadiusX="12" RadiusY="12" Stroke="#9FB3C5" StrokeThickness="2" StrokeDashArray="4 3" Fill="White"/>
+              <Rectangle RadiusX="12" RadiusY="12" Stroke="{DynamicResource DropLineBrush}" StrokeThickness="2" StrokeDashArray="4 3" Fill="{DynamicResource SurfaceBrush}"/>
               <StackPanel Orientation="Horizontal" Margin="20,16" VerticalAlignment="Center">
                 <Path Data="M15,4 L15,19 M8.5,12.5 L15,19 L21.5,12.5 M5,25 L25,25" Stroke="#0F766E" StrokeThickness="2.2"
                       StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="30" Height="30" Stretch="None" VerticalAlignment="Center"/>
@@ -295,10 +384,7 @@
 
         <!-- ===== Vue : tous les pilotes ===== -->
         <Border x:Name="ViewAll" Visibility="Collapsed" Style="{StaticResource Card}" Padding="0">
-          <DataGrid x:Name="AllGrid" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
-                    GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#EEF1F4" BorderThickness="0"
-                    Background="Transparent" RowBackground="White" AlternatingRowBackground="#FAFBFC"
-                    CanUserAddRows="False" SelectionMode="Single" RowHeight="36" Margin="1">
+          <DataGrid x:Name="AllGrid">
             <DataGrid.Columns>
               <DataGridTextColumn Header="Périphérique" Binding="{Binding Name}" Width="2.2*" ElementStyle="{StaticResource CellText}"/>
               <DataGridTextColumn Header="Fabricant" Binding="{Binding Manufacturer}" Width="1.2*" ElementStyle="{StaticResource CellText}"/>
@@ -307,6 +393,125 @@
             </DataGrid.Columns>
           </DataGrid>
         </Border>
+
+        <!-- ===== Vue : sauvegardes ===== -->
+        <Grid x:Name="ViewBackups" Visibility="Collapsed">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <DockPanel Margin="0,0,0,12">
+            <Button x:Name="BtnBackupsClear" DockPanel.Dock="Right" Content="Tout supprimer" Style="{StaticResource BtnSmall}"/>
+            <TextBlock x:Name="BackupsInfo" Style="{StaticResource Muted}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+          </DockPanel>
+          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="BackupsPanel"/>
+          </ScrollViewer>
+          <TextBlock x:Name="BackupsEmpty" Grid.Row="1" Style="{StaticResource Muted}" FontSize="14" TextAlignment="Center" TextWrapping="Wrap"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"
+                     Text="Aucune sauvegarde pour l'instant. Driver sauvegarde automatiquement le pilote actuel avant chaque installation."/>
+        </Grid>
+
+        <!-- ===== Vue : historique ===== -->
+        <Grid x:Name="ViewHistory" Visibility="Collapsed">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <DockPanel Margin="0,0,0,12">
+            <Button x:Name="BtnReport" DockPanel.Dock="Right" Content="Exporter un rapport" Style="{StaticResource BtnSmall}"/>
+            <TextBlock x:Name="HistoryInfo" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+          </DockPanel>
+          <Border Grid.Row="1" Style="{StaticResource Card}" Padding="0">
+            <DataGrid x:Name="HistoryGrid">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Date" Binding="{Binding Date}" Width="1.1*" ElementStyle="{StaticResource CellText}"/>
+                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="0.9*" ElementStyle="{StaticResource CellText}"/>
+                <DataGridTextColumn Header="Pilote" Binding="{Binding Device}" Width="2*" ElementStyle="{StaticResource CellText}"/>
+                <DataGridTextColumn Header="Avant" Binding="{Binding OldVersion}" Width="1*" ElementStyle="{StaticResource CellText}"/>
+                <DataGridTextColumn Header="Après" Binding="{Binding NewVersion}" Width="1*" ElementStyle="{StaticResource CellText}"/>
+                <DataGridTextColumn Header="Résultat" Binding="{Binding Result}" Width="0.9*" ElementStyle="{StaticResource CellText}"/>
+              </DataGrid.Columns>
+            </DataGrid>
+          </Border>
+          <TextBlock x:Name="HistoryEmpty" Grid.Row="1" Style="{StaticResource Muted}" FontSize="14" HorizontalAlignment="Center"
+                     VerticalAlignment="Center" Visibility="Collapsed" Text="Aucune installation enregistrée pour l'instant."/>
+        </Grid>
+
+        <!-- ===== Vue : paramètres ===== -->
+        <ScrollViewer x:Name="ViewSettings" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="0,0,6,0">
+
+            <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+              <StackPanel>
+                <TextBlock Text="Vérification automatique" Style="{StaticResource SectionTitle}"/>
+                <TextBlock Text="Quand Driver cherche des mises à jour en arrière-plan, après l'ouverture de ta session." Style="{StaticResource Muted}" Margin="0,2,0,10"/>
+                <WrapPanel>
+                  <RadioButton x:Name="RbFreqStartup" GroupName="Freq" Style="{StaticResource Segment}" Content="À chaque démarrage"/>
+                  <RadioButton x:Name="RbFreqDaily" GroupName="Freq" Style="{StaticResource Segment}" Content="Une fois par jour"/>
+                  <RadioButton x:Name="RbFreqWeekly" GroupName="Freq" Style="{StaticResource Segment}" Content="Une fois par semaine"/>
+                  <RadioButton x:Name="RbFreqNever" GroupName="Freq" Style="{StaticResource Segment}" Content="Jamais"/>
+                </WrapPanel>
+                <CheckBox x:Name="ChkNotify" Style="{StaticResource Toggle}" Margin="0,14,0,0"
+                          Content="Afficher une notification au lieu d'ouvrir directement la fenêtre"/>
+              </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+              <StackPanel>
+                <TextBlock Text="Pilote NVIDIA" Style="{StaticResource SectionTitle}"/>
+                <TextBlock Text="Game Ready : optimisé pour les jeux, mis à jour souvent. Studio : plus stable, pour la création (vidéo, 3D)." Style="{StaticResource Muted}" Margin="0,2,0,10" TextWrapping="Wrap"/>
+                <WrapPanel>
+                  <RadioButton x:Name="RbGameReady" GroupName="Nvidia" Style="{StaticResource Segment}" Content="Game Ready (jeux)"/>
+                  <RadioButton x:Name="RbStudio" GroupName="Nvidia" Style="{StaticResource Segment}" Content="Studio (création)"/>
+                </WrapPanel>
+              </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+              <StackPanel>
+                <TextBlock Text="Thème" Style="{StaticResource SectionTitle}"/>
+                <WrapPanel Margin="0,10,0,0">
+                  <RadioButton x:Name="RbLight" GroupName="Theme" Style="{StaticResource Segment}" Content="Clair"/>
+                  <RadioButton x:Name="RbDark" GroupName="Theme" Style="{StaticResource Segment}" Content="Sombre"/>
+                </WrapPanel>
+              </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+              <StackPanel>
+                <TextBlock Text="Sauvegardes des pilotes" Style="{StaticResource SectionTitle}"/>
+                <TextBlock Style="{StaticResource Muted}" Margin="0,2,0,10" TextWrapping="Wrap"
+                           Text="Avant chaque installation, Driver sauvegarde le pilote actuel pour pouvoir revenir en arrière. Au-delà de la limite, les sauvegardes les plus anciennes de ce pilote sont supprimées automatiquement."/>
+                <WrapPanel>
+                  <RadioButton x:Name="RbKeep1" GroupName="Keep" Style="{StaticResource Segment}" Content="1 version"/>
+                  <RadioButton x:Name="RbKeep2" GroupName="Keep" Style="{StaticResource Segment}" Content="2 versions"/>
+                  <RadioButton x:Name="RbKeep3" GroupName="Keep" Style="{StaticResource Segment}" Content="3 versions"/>
+                  <RadioButton x:Name="RbKeep5" GroupName="Keep" Style="{StaticResource Segment}" Content="5 versions"/>
+                </WrapPanel>
+                <TextBlock x:Name="BackupSizeText" Style="{StaticResource Muted}" Margin="0,10,0,0"/>
+              </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+              <StackPanel>
+                <TextBlock Text="Mises à jour ignorées" Style="{StaticResource SectionTitle}"/>
+                <TextBlock Text="Une version ignorée n'est plus proposée. Une version plus récente du même pilote le sera de nouveau." Style="{StaticResource Muted}" Margin="0,2,0,8" TextWrapping="Wrap"/>
+                <StackPanel x:Name="IgnoredPanel"/>
+                <TextBlock x:Name="IgnoredEmpty" Text="Aucune mise à jour ignorée." Style="{StaticResource Muted}" FontStyle="Italic"/>
+              </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}">
+              <StackPanel>
+                <TextBlock Text="Driver" Style="{StaticResource SectionTitle}"/>
+                <TextBlock x:Name="AppVersionText" Style="{StaticResource Muted}" Margin="0,2,0,10"/>
+                <CheckBox x:Name="ChkAutoUpdate" Style="{StaticResource Toggle}" Content="Vérifier automatiquement les nouvelles versions de Driver"/>
+                <Button x:Name="BtnCheckAppUpdate" Content="Vérifier maintenant" Style="{StaticResource BtnSmall}" HorizontalAlignment="Left" Margin="0,12,0,0"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
       </Grid>
     </Grid>
   </Grid>

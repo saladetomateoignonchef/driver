@@ -11,7 +11,7 @@
     (élévation de privilèges). Program Files n'est modifiable que par les admins.
 #>
 [CmdletBinding()]
-param()
+param([switch]$Silent)   # -Silent : utilisé par la mise à jour automatique de Driver
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'src\Common.ps1')
@@ -64,3 +64,4 @@ try { Enable-ComputerRestore -Drive "$env:SystemDrive\" } catch { Write-Warning 
 Write-Host "`nInstallation terminée." -ForegroundColor Green
 Write-Host "Raccourci : $desktop\Driver.lnk"
 Write-Host "Journaux  : $($script:LogDir)"
+exit 0

@@ -3,12 +3,29 @@
 #
 #  La mise en page est décrite dans MainWindow.xaml ; ce fichier la charge,
 #  la remplit avec les données et réagit aux clics.
-#  Les opérations longues (recherche, analyse de paquet, installation) tournent
-#  dans un job PowerShell en arrière-plan ; un DispatcherTimer vérifie toutes les
-#  500 ms si le job est terminé, pour que la fenêtre ne se fige jamais.
+#  Les opérations longues (analyse, installation, retour arrière, mise à jour de
+#  Driver) tournent dans un job PowerShell en arrière-plan ; un DispatcherTimer
+#  vérifie toutes les 500 ms où il en est (fichier progress.json) et s'il est
+#  terminé, pour que la fenêtre ne se fige jamais.
 # =============================================================================
 
 . (Join-Path $PSScriptRoot 'DropTarget.ps1')   # charge aussi WPF
+
+# ---------- Thèmes (couleurs remplacées dans les ressources de la fenêtre) ----------
+$script:Themes = @{
+    Light = @{
+        BgBrush = '#F4F6F8'; SurfaceBrush = '#FFFFFF'; SurfaceAltBrush = '#F8FAFC'; LineBrush = '#E3E8ED'
+        TextBrush = '#17202A'; MutedBrush = '#5D6B78'; BtnLineBrush = '#D3DAE1'; ChipBrush = '#F1F5F9'
+        ChipTextBrush = '#334155'; ToggleOffBrush = '#CBD5E1'; DropLineBrush = '#9FB3C5'; SelectedBrush = '#E6F4F1'
+        BannerBrush = '#CCFBF1'; BannerTextBrush = '#134E4A'
+    }
+    Dark = @{
+        BgBrush = '#0E1621'; SurfaceBrush = '#16212D'; SurfaceAltBrush = '#1B2836'; LineBrush = '#263546'
+        TextBrush = '#E6EDF3'; MutedBrush = '#93A4B5'; BtnLineBrush = '#34465A'; ChipBrush = '#223244'
+        ChipTextBrush = '#CBD5E1'; ToggleOffBrush = '#3A4A5C'; DropLineBrush = '#45607A'; SelectedBrush = '#173A37'
+        BannerBrush = '#134E4A'; BannerTextBrush = '#CCFBF1'
+    }
+}
 
 # ---------- Petites fonctions d'aide pour créer des éléments WPF ----------
 $script:BrushConverter = New-Object System.Windows.Media.BrushConverter
@@ -16,15 +33,27 @@ function Get-Brush([string]$Hex) { return $script:BrushConverter.ConvertFromStri
 function New-Thickness([double]$L, [double]$T, [double]$R, [double]$B) { return New-Object System.Windows.Thickness($L, $T, $R, $B) }
 
 function New-Text {
-    param([string]$Text, [double]$Size = 13, [string]$Color = '#17202A', [switch]$Bold, [switch]$SemiBold)
+    <# $Color : '#RRGGBB' (couleur fixe) ou nom de couleur du thème : Text, Muted, ChipText... #>
+    param([string]$Text, [double]$Size = 13, [string]$Color = 'Text', [switch]$Bold, [switch]$SemiBold)
     $tb = New-Object System.Windows.Controls.TextBlock
     $tb.Text         = $Text
     $tb.FontSize     = $Size
-    $tb.Foreground   = Get-Brush $Color
     $tb.TextTrimming = 'CharacterEllipsis'
+    if ($Color.StartsWith('#')) { $tb.Foreground = Get-Brush $Color }
+    else { $tb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "$($Color)Brush") }
     if ($Bold)     { $tb.FontWeight = [System.Windows.FontWeights]::Bold }
     if ($SemiBold) { $tb.FontWeight = [System.Windows.FontWeights]::SemiBold }
     return $tb
+}
+
+function New-Button {
+    param([string]$Text, [string]$Style = 'BtnSmall', [object]$Tag, [object]$Window)
+    $b = New-Object System.Windows.Controls.Button
+    $b.Content = $Text
+    $b.Style   = $Window.FindResource($Style)
+    $b.Tag     = $Tag
+    $b.VerticalAlignment = 'Center'
+    return $b
 }
 
 # Icônes (tracés vectoriels) et couleurs par type de composant
@@ -32,11 +61,11 @@ $script:Icons = @{
     gpu     = @{ Data = 'M1.5,4 L16.5,4 L16.5,14 L1.5,14 Z M13.4,9 A2.4,2.4 0 1 1 8.6,9 A2.4,2.4 0 1 1 13.4,9'; Bg = '#ECFCCB'; Fg = '#4D7C0F' }
     audio   = @{ Data = 'M3,7 L3,11 M6,5 L6,13 M9,3 L9,15 M12,5 L12,13 M15,7 L15,11'; Bg = '#E0F2FE'; Fg = '#0369A1' }
     effect  = @{ Data = 'M3,7 L3,11 M6,5 L6,13 M9,3 L9,15 M12,5 L12,13 M15,7 L15,11'; Bg = '#F3E8FF'; Fg = '#7E22CE' }
-    net     = @{ Data = 'M2,12 L16,12 M4,12 L4,6 L14,6 L14,12 M7,9 L11,9'; Bg = '#F1F5F9'; Fg = '#475569' }
+    net     = @{ Data = 'M2,12 L16,12 M4,12 L4,6 L14,6 L14,12 M7,9 L11,9'; Bg = '#E2E8F0'; Fg = '#475569' }
     chipset = @{ Data = 'M2,2 L16,2 L16,16 L2,16 Z M6,6 L12,6 L12,12 L6,12 Z'; Bg = '#DBEAFE'; Fg = '#1D4ED8' }
     bt      = @{ Data = 'M6,5 L12,11 L9,14 L9,2 L12,5 L6,11'; Bg = '#E0E7FF'; Fg = '#4338CA' }
     storage = @{ Data = 'M2,5 L16,5 L16,13 L2,13 Z M5,9 L9,9'; Bg = '#FCE7F3'; Fg = '#BE185D' }
-    other   = @{ Data = 'M3,3 L15,3 L15,15 L3,15 Z M6,7 L12,7 M6,10 L12,10'; Bg = '#F1F5F9'; Fg = '#475569' }
+    other   = @{ Data = 'M3,3 L15,3 L15,15 L3,15 Z M6,7 L12,7 M6,10 L12,10'; Bg = '#E2E8F0'; Fg = '#475569' }
 }
 
 function New-IconBadge([string]$Kind, [double]$Size = 36) {
@@ -71,17 +100,36 @@ function New-VersionText([string]$Current, [string]$New) {
     $tb = New-Object System.Windows.Controls.TextBlock
     $tb.FontFamily   = New-Object System.Windows.Media.FontFamily('Consolas')
     $tb.FontSize     = 12.5
-    $tb.Foreground   = Get-Brush '#5D6B78'
     $tb.TextTrimming = 'CharacterEllipsis'
+    $tb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'MutedBrush')
     [void]$tb.Inlines.Add((New-Object System.Windows.Documents.Run([string]$Current)))
     if ($New) {
         [void]$tb.Inlines.Add((New-Object System.Windows.Documents.Run('  →  ')))
         $run = New-Object System.Windows.Documents.Run([string]$New)
-        $run.Foreground = Get-Brush '#0F766E'
+        $run.Foreground = Get-Brush '#14B8A6'
         $run.FontWeight = [System.Windows.FontWeights]::Bold
         [void]$tb.Inlines.Add($run)
     }
     return $tb
+}
+
+function New-Columns {
+    <# Grille avec des colonnes : 'Auto', '*' ou une largeur en pixels. #>
+    param([string[]]$Widths)
+    $grid = New-Object System.Windows.Controls.Grid
+    foreach ($w in $Widths) {
+        $cd = New-Object System.Windows.Controls.ColumnDefinition
+        if ($w -eq 'Auto')  { $cd.Width = [System.Windows.GridLength]::Auto }
+        elseif ($w -eq '*') { $cd.Width = New-Object System.Windows.GridLength(1, ([System.Windows.GridUnitType]::Star)) }
+        else                { $cd.Width = New-Object System.Windows.GridLength([double]$w) }
+        $grid.ColumnDefinitions.Add($cd)
+    }
+    return $grid
+}
+
+function Add-ToGrid([object]$Grid, [object]$Element, [int]$Column) {
+    [System.Windows.Controls.Grid]::SetColumn($Element, $Column)
+    [void]$Grid.Children.Add($Element)
 }
 
 function Format-Size([double]$SizeMB) {
@@ -130,20 +178,23 @@ function Get-KindFromClass([string]$DriverClass) {
 function Show-MainWindow {
     param(
         [object[]]$InitialResults,   # résultats déjà trouvés (lancement au démarrage)
-        [switch]$AutoSearch          # lance une recherche dès l'ouverture
+        [switch]$AutoSearch          # lance une analyse dès l'ouverture
     )
 
     # ---------- Chargement de la fenêtre ----------
     [xml]$xaml = Get-Content -Path (Join-Path $PSScriptRoot 'MainWindow.xaml') -Raw -Encoding UTF8
     $window = [System.Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
     $ui = @{}
-    foreach ($name in @('NavDashboard', 'NavUpdates', 'NavAll', 'NavPackage', 'NavBoard', 'NavLogs', 'UpdatesBadge', 'UpdatesBadgeText',
-                        'PcName', 'PcInfo', 'PageTitle', 'StatusText', 'BtnSearch', 'BtnInstall', 'Busy',
-                        'ViewDashboard', 'ViewUpdates', 'ViewAll', 'KpiDevices', 'KpiUpdates', 'ChkRestore',
-                        'CardsPanel', 'DropZone', 'ActivityText', 'UpdatesPanel', 'UpdatesEmpty', 'AllGrid')) {
-        $ui[$name] = $window.FindName($name)
+    foreach ($node in $xaml.SelectNodes('//*[@*[local-name()="Name"]]')) {
+        $name = $node.GetAttribute('Name', 'http://schemas.microsoft.com/winfx/2006/xaml')
+        if ($name) { $ui[$name] = $window.FindName($name) }
+    }
+    $iconFile = Join-Path $PSScriptRoot 'driver.ico'
+    if (Test-Path $iconFile) {
+        try { $window.Icon = [System.Windows.Media.Imaging.BitmapFrame]::Create((New-Object System.Uri($iconFile))) } catch { }
     }
 
+    $script:Settings     = Get-AppSettings
     $script:CurrentJob   = $null
     $script:JobKind      = $null
     $script:Updates      = @()
@@ -151,16 +202,24 @@ function Show-MainWindow {
     $script:UpdateChecks = New-Object System.Collections.Generic.List[object]
     $script:LastSearch   = $null
     $script:Board        = $null
+    $script:AppRelease   = $null
+    $script:LoadingSettings = $false
 
     # ---------- Fonctions internes ----------
     function Show-Message([string]$Text, [string]$Title = 'Driver', [string]$Buttons = 'OK', [string]$Icon = 'Information') {
-        return [System.Windows.MessageBox]::Show($window, $Text, $Title, $Buttons, $Icon)
+        return [string]([System.Windows.MessageBox]::Show($window, $Text, $Title, $Buttons, $Icon))
+    }
+
+    function Set-Theme([string]$Name) {
+        $palette = $script:Themes[$Name]
+        if (-not $palette) { $palette = $script:Themes['Light'] }
+        foreach ($key in @($palette.Keys)) { $window.Resources[$key] = Get-Brush $palette[$key] }
     }
 
     function Set-View([string]$Name) {
-        $views  = @{ dashboard = 'ViewDashboard'; updates = 'ViewUpdates'; all = 'ViewAll' }
-        $navs   = @{ dashboard = 'NavDashboard';  updates = 'NavUpdates';  all = 'NavAll' }
-        $titles = @{ dashboard = 'Tableau de bord'; updates = 'Mises à jour'; all = 'Tous les pilotes' }
+        $views  = @{ dashboard = 'ViewDashboard'; updates = 'ViewUpdates'; all = 'ViewAll'; backups = 'ViewBackups'; history = 'ViewHistory'; settings = 'ViewSettings' }
+        $navs   = @{ dashboard = 'NavDashboard';  updates = 'NavUpdates';  all = 'NavAll';  backups = 'NavBackups';  history = 'NavHistory';  settings = 'NavSettings' }
+        $titles = @{ dashboard = 'Tableau de bord'; updates = 'Mises à jour'; all = 'Tous les pilotes'; backups = 'Sauvegardes'; history = 'Historique'; settings = 'Paramètres' }
         foreach ($k in @($views.Keys)) {
             $on = ($k -eq $Name)
             $ui[$views[$k]].Visibility = if ($on) { 'Visible' } else { 'Collapsed' }
@@ -168,11 +227,20 @@ function Show-MainWindow {
             $ui[$navs[$k]].Foreground  = if ($on) { [System.Windows.Media.Brushes]::White } else { Get-Brush '#B8C7D6' }
         }
         $ui.PageTitle.Text = $titles[$Name]
+        switch ($Name) {
+            'backups'  { Update-BackupsView }
+            'history'  { Update-HistoryView }
+            'settings' { Update-SettingsView }
+        }
     }
 
     function Get-StatusLine {
         if (-not $script:LastSearch) { return 'Pas encore analysé' }
         return ('Dernière analyse : aujourd''hui à {0:HH:mm}' -f $script:LastSearch)
+    }
+
+    function Get-VisibleUpdates {
+        return @($script:Updates | Where-Object { $_ -and -not (Test-UpdateIgnored -Candidate $_ -Settings $script:Settings) })
     }
 
     function Get-CheckedUpdates {
@@ -186,13 +254,24 @@ function Show-MainWindow {
     }
 
     function Set-Busy([bool]$Busy, [string]$Text) {
-        $ui.StatusText.Text      = $Text
-        $ui.Busy.Visibility      = if ($Busy) { 'Visible' } else { 'Collapsed' }
-        $ui.BtnSearch.IsEnabled  = -not $Busy
-        $ui.DropZone.IsEnabled   = -not $Busy
-        $ui.NavPackage.IsEnabled = -not $Busy
+        $ui.StatusText.Text       = $Text
+        $ui.Busy.Visibility       = if ($Busy) { 'Visible' } else { 'Collapsed' }
+        $ui.Busy.IsIndeterminate  = $true
+        $ui.BtnSearch.IsEnabled   = -not $Busy
+        $ui.DropZone.IsEnabled    = -not $Busy
+        $ui.NavPackage.IsEnabled  = -not $Busy
+        $ui.BtnAppUpdate.IsEnabled = -not $Busy
         Update-InstallButton
         $window.Cursor = if ($Busy) { [System.Windows.Input.Cursors]::AppStarting } else { $null }
+        if (-not $Busy) { Clear-TaskProgress }
+    }
+
+    function Start-BackgroundJob([string]$Kind, [object[]]$Arguments, [scriptblock]$Script) {
+        Clear-TaskProgress
+        $script:JobKind    = $Kind
+        $script:CurrentJob = Start-Job -ArgumentList $Arguments -ScriptBlock $Script
+        Update-InstallButton
+        $timer.Start()
     }
 
     function Update-Activity {
@@ -200,7 +279,7 @@ function Show-MainWindow {
         $file  = Join-Path $script:LogDir ('{0:yyyy-MM-dd}.log' -f (Get-Date))
         $lines = @()
         if (Test-Path $file) {
-            $pattern = '\] (Recherche terminée|Installation validée|Point de restauration créé|NVIDIA : installateur terminé|Windows Update : .* -> Code|pnputil : code \d+|Paquet manuel : (\d+ fichier|installation validée))'
+            $pattern = '\] (Recherche terminée|Installation validée|Point de restauration créé|NVIDIA : installateur terminé|Windows Update : .* -> Code|pnputil : code \d+|Paquet manuel : (\d+ fichier|installation validée)|Retour arrière : (Version|Échec|Aucun)|Sauvegarde : .* sauvegardé \(|Mise à jour de Driver|Nettoyage)'
             $lines = @(Get-Content -Path $file -Encoding UTF8 | Where-Object { $_ -match $pattern } | Select-Object -Last 4)
         }
         if ($lines.Count -eq 0) { $ui.ActivityText.Text = "Aucune activité aujourd'hui."; return }
@@ -223,14 +302,14 @@ function Show-MainWindow {
         } catch { }
     }
 
+    # ---------- Vue : tableau de bord ----------
     function Update-Dashboard {
-        $updates = @($script:Updates | Where-Object { $_ })
+        $updates = Get-VisibleUpdates
         $inv     = @($script:Inventory | Where-Object { $_ })
 
-        # Compteurs + pastille du menu
         $ui.KpiDevices.Text       = if ($inv.Count) { [string]$inv.Count } else { '-' }
         $ui.KpiUpdates.Text       = [string]$updates.Count
-        $ui.KpiUpdates.Foreground = if ($updates.Count) { Get-Brush '#D97706' } else { Get-Brush '#166534' }
+        $ui.KpiUpdates.Foreground = if ($updates.Count) { Get-Brush '#D97706' } else { Get-Brush '#16A34A' }
         $ui.UpdatesBadge.Visibility = if ($updates.Count) { 'Visible' } else { 'Collapsed' }
         $ui.UpdatesBadgeText.Text = [string]$updates.Count
 
@@ -271,7 +350,7 @@ function Show-MainWindow {
             $titles.Margin = New-Thickness 12 0 0 0
             $titles.VerticalAlignment = 'Center'
             [void]$titles.Children.Add((New-Text $c.Title 14 -SemiBold))
-            [void]$titles.Children.Add((New-Text $c.Label 12 '#5D6B78'))
+            [void]$titles.Children.Add((New-Text $c.Label 12 'Muted'))
             [void]$head.Children.Add($titles)
             [void]$stack.Children.Add($head)
 
@@ -288,25 +367,19 @@ function Show-MainWindow {
         }
     }
 
+    # ---------- Vue : mises à jour ----------
     function Update-UpdatesView {
         $ui.UpdatesPanel.Children.Clear()
         $script:UpdateChecks.Clear()
-        $updates = @($script:Updates | Where-Object { $_ })
+        $updates = Get-VisibleUpdates
         $ui.UpdatesEmpty.Visibility = if ($updates.Count) { 'Collapsed' } else { 'Visible' }
 
         foreach ($u in $updates) {
             $row = New-Object System.Windows.Controls.Border
             $row.Style   = $window.FindResource('Card')
             $row.Margin  = New-Thickness 0 0 0 8
-            $row.Padding = New-Thickness 16 12 18 12
-            $grid = New-Object System.Windows.Controls.Grid
-            foreach ($w in @('Auto', 'Auto', '*', 'Auto', 'Auto', '90')) {
-                $cd = New-Object System.Windows.Controls.ColumnDefinition
-                if ($w -eq 'Auto')   { $cd.Width = [System.Windows.GridLength]::Auto }
-                elseif ($w -eq '*')  { $cd.Width = New-Object System.Windows.GridLength(1, ([System.Windows.GridUnitType]::Star)) }
-                else                 { $cd.Width = New-Object System.Windows.GridLength([double]$w) }
-                $grid.ColumnDefinitions.Add($cd)
-            }
+            $row.Padding = New-Thickness 16 12 14 12
+            $grid = New-Columns @('Auto', 'Auto', '*', 'Auto', 'Auto', '80', 'Auto')
 
             $chk = New-Object System.Windows.Controls.CheckBox
             $chk.Style     = $window.FindResource('Check')
@@ -316,37 +389,47 @@ function Show-MainWindow {
             $chk.Margin = New-Thickness 0 0 14 0
             $chk.Add_Click({ Update-InstallButton })
             $script:UpdateChecks.Add($chk)
-            [System.Windows.Controls.Grid]::SetColumn($chk, 0); [void]$grid.Children.Add($chk)
+            Add-ToGrid $grid $chk 0
 
             $comp = Get-KindFromClass $u.DriverClass
             if ($u.Source -eq 'NVIDIA') { $comp = @{ Kind = 'gpu'; Title = 'Carte graphique' } }
             $icon = New-IconBadge $comp.Kind 34
             $icon.Margin = New-Thickness 0 0 14 0
-            [System.Windows.Controls.Grid]::SetColumn($icon, 1); [void]$grid.Children.Add($icon)
+            Add-ToGrid $grid $icon 1
 
             $names = New-Object System.Windows.Controls.StackPanel
             $names.VerticalAlignment = 'Center'
             [void]$names.Children.Add((New-Text $u.Device 14 -SemiBold))
             $sub = if ($u.Title) { $u.Title } else { $comp.Title }
-            [void]$names.Children.Add((New-Text $sub 12 '#5D6B78'))
-            [System.Windows.Controls.Grid]::SetColumn($names, 2); [void]$grid.Children.Add($names)
+            [void]$names.Children.Add((New-Text $sub 12 'Muted'))
+            Add-ToGrid $grid $names 2
 
             $tag = New-Object System.Windows.Controls.Border
             $tag.CornerRadius = New-Object System.Windows.CornerRadius(10)
-            $tag.Padding    = New-Thickness 9 2 9 2
-            $tag.Margin     = New-Thickness 12 0 18 0
-            $tag.Background = Get-Brush '#F1F5F9'
+            $tag.Padding = New-Thickness 9 2 9 2
+            $tag.Margin  = New-Thickness 12 0 18 0
+            $tag.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, 'ChipBrush')
             $tag.VerticalAlignment = 'Center'
-            $tag.Child = New-Text $u.Source 11.5 '#334155'
-            [System.Windows.Controls.Grid]::SetColumn($tag, 3); [void]$grid.Children.Add($tag)
+            $tag.Child = New-Text $u.Source 11.5 'ChipText'
+            Add-ToGrid $grid $tag 3
 
             $ver = New-VersionText $u.CurrentVersion $u.NewVersion
             $ver.VerticalAlignment = 'Center'
-            [System.Windows.Controls.Grid]::SetColumn($ver, 4); [void]$grid.Children.Add($ver)
+            Add-ToGrid $grid $ver 4
 
-            $size = New-Text (Format-Size $u.SizeMB) 12.5 '#5D6B78'
+            $size = New-Text (Format-Size $u.SizeMB) 12.5 'Muted'
             $size.HorizontalAlignment = 'Right'; $size.VerticalAlignment = 'Center'
-            [System.Windows.Controls.Grid]::SetColumn($size, 5); [void]$grid.Children.Add($size)
+            Add-ToGrid $grid $size 5
+
+            $ignore = New-Button -Text 'Ignorer' -Style 'BtnLink' -Tag $u -Window $window
+            $ignore.Margin = New-Thickness 10 0 0 0
+            $ignore.ToolTip = 'Ne plus proposer cette version (réversible dans Paramètres)'
+            $ignore.Add_Click({
+                param($s, $e)
+                Add-IgnoredUpdate -Candidate $s.Tag -Settings $script:Settings
+                Update-All
+            })
+            Add-ToGrid $grid $ignore 6
 
             $row.Child = $grid
             [void]$ui.UpdatesPanel.Children.Add($row)
@@ -354,8 +437,9 @@ function Show-MainWindow {
         Update-InstallButton
     }
 
+    # ---------- Vue : tous les pilotes ----------
     function Update-AllView {
-        $updates = @($script:Updates | Where-Object { $_ })
+        $updates = Get-VisibleUpdates
         $rows = foreach ($d in @(Get-VendorDriverList -Inventory $script:Inventory)) {
             $u = $updates | Where-Object { $_.Device -eq $d.Name } | Select-Object -First 1
             [pscustomobject]@{
@@ -368,6 +452,129 @@ function Show-MainWindow {
         $ui.AllGrid.ItemsSource = @($rows)
     }
 
+    # ---------- Vue : sauvegardes ----------
+    function Update-BackupsView {
+        $ui.BackupsPanel.Children.Clear()
+        $backups = @(Get-DriverBackup | Sort-Object Date -Descending)
+        $ui.BackupsEmpty.Visibility = if ($backups.Count) { 'Collapsed' } else { 'Visible' }
+        $ui.BtnBackupsClear.IsEnabled = ($backups.Count -gt 0)
+        $ui.BackupsInfo.Text = '{0} sauvegarde(s) · {1} au total · limite : {2} version(s) par pilote (modifiable dans Paramètres)' -f `
+            $backups.Count, (Format-Size (Get-BackupTotalSizeMB)), $script:Settings.BackupKeep
+        if (-not $backups.Count) { $ui.BackupsInfo.Text = "Limite : $($script:Settings.BackupKeep) version(s) par pilote (modifiable dans Paramètres)" }
+
+        foreach ($b in $backups) {
+            $row = New-Object System.Windows.Controls.Border
+            $row.Style   = $window.FindResource('Card')
+            $row.Margin  = New-Thickness 0 0 0 8
+            $row.Padding = New-Thickness 16 12 14 12
+            $grid = New-Columns @('Auto', '*', 'Auto', 'Auto', 'Auto')
+
+            $icon = New-IconBadge 'other' 34
+            $icon.Margin = New-Thickness 0 0 14 0
+            Add-ToGrid $grid $icon 0
+
+            $info = New-Object System.Windows.Controls.StackPanel
+            $info.VerticalAlignment = 'Center'
+            [void]$info.Children.Add((New-Text $b.Device 14 -SemiBold))
+            [void]$info.Children.Add((New-Text ('Version {0} · sauvegardée le {1:dd/MM/yyyy} à {1:HH:mm}' -f $b.Version, $b.Date) 12 'Muted'))
+            Add-ToGrid $grid $info 1
+
+            $size = New-Text (Format-Size $b.SizeMB) 12.5 'Muted'
+            $size.VerticalAlignment = 'Center'; $size.Margin = New-Thickness 12 0 16 0
+            Add-ToGrid $grid $size 2
+
+            $restore = New-Button -Text 'Revenir à cette version' -Style 'BtnPrimary' -Tag $b -Window $window
+            $restore.Padding = New-Thickness 12 6 12 6; $restore.FontSize = 12
+            $restore.Add_Click({ param($s, $e); Start-Restore $s.Tag })
+            Add-ToGrid $grid $restore 3
+
+            $del = New-Button -Text 'Supprimer' -Style 'BtnSmall' -Tag $b -Window $window
+            $del.Margin = New-Thickness 8 0 0 0
+            $del.Add_Click({
+                param($s, $e)
+                $b = $s.Tag
+                if ((Show-Message "Supprimer la sauvegarde de $($b.Device) (version $($b.Version)) ?" 'Sauvegardes' 'YesNo' 'Question') -eq 'Yes') {
+                    Remove-DriverBackup -Path $b.Path
+                    Update-BackupsView
+                }
+            })
+            Add-ToGrid $grid $del 4
+
+            $row.Child = $grid
+            [void]$ui.BackupsPanel.Children.Add($row)
+        }
+    }
+
+    # ---------- Vue : historique ----------
+    function Update-HistoryView {
+        $history = @(Get-DriverHistory)
+        $ok = @($history | Where-Object { $_.Success }).Count
+        $ui.HistoryInfo.Text = "$($history.Count) opération(s) enregistrée(s), dont $ok réussie(s)"
+        $ui.HistoryEmpty.Visibility = if ($history.Count) { 'Collapsed' } else { 'Visible' }
+        $ui.HistoryGrid.ItemsSource = @($history | ForEach-Object {
+            [pscustomobject]@{
+                Date       = ([datetime]$_.Date).ToString('dd/MM/yyyy HH:mm')
+                Type       = $_.Type
+                Device     = $_.Device
+                OldVersion = $_.OldVersion
+                NewVersion = $_.NewVersion
+                Result     = if ($_.Success) { '✓ Réussi' } else { '✗ Échec' }
+            }
+        })
+    }
+
+    # ---------- Vue : paramètres ----------
+    function Update-SettingsView {
+        $script:LoadingSettings = $true
+        $s = $script:Settings
+        $ui.RbFreqStartup.IsChecked = ($s.CheckFrequency -eq 'Startup')
+        $ui.RbFreqDaily.IsChecked   = ($s.CheckFrequency -eq 'Daily')
+        $ui.RbFreqWeekly.IsChecked  = ($s.CheckFrequency -eq 'Weekly')
+        $ui.RbFreqNever.IsChecked   = ($s.CheckFrequency -eq 'Never')
+        $ui.ChkNotify.IsChecked     = [bool]$s.Notifications
+        $ui.RbGameReady.IsChecked   = ($s.NvidiaBranch -ne 'Studio')
+        $ui.RbStudio.IsChecked      = ($s.NvidiaBranch -eq 'Studio')
+        $ui.RbLight.IsChecked       = ($s.Theme -ne 'Dark')
+        $ui.RbDark.IsChecked        = ($s.Theme -eq 'Dark')
+        $ui.RbKeep1.IsChecked       = ([int]$s.BackupKeep -eq 1)
+        $ui.RbKeep2.IsChecked       = ([int]$s.BackupKeep -eq 2)
+        $ui.RbKeep3.IsChecked       = ([int]$s.BackupKeep -eq 3)
+        $ui.RbKeep5.IsChecked       = ([int]$s.BackupKeep -eq 5)
+        $ui.ChkAutoUpdate.IsChecked = [bool]$s.AutoUpdateCheck
+        $ui.AppVersionText.Text     = "Version installée : $($script:AppVersion) · github.com/$($script:GitHubRepo)"
+        $ui.BackupSizeText.Text     = "Espace utilisé actuellement par les sauvegardes : $(Format-Size (Get-BackupTotalSizeMB))"
+        if (-not $ui.BackupSizeText.Text.EndsWith('o')) { $ui.BackupSizeText.Text += '0 Mo' }
+
+        # Liste des mises à jour ignorées
+        $ui.IgnoredPanel.Children.Clear()
+        $ignored = @($s.IgnoredUpdates | Where-Object { $_ })
+        $ui.IgnoredEmpty.Visibility = if ($ignored.Count) { 'Collapsed' } else { 'Visible' }
+        foreach ($i in $ignored) {
+            $grid = New-Columns @('*', 'Auto')
+            $grid.Margin = New-Thickness 0 4 0 4
+            $t = New-Text "$($i.Device) · version $($i.NewVersion)" 13
+            $t.VerticalAlignment = 'Center'
+            Add-ToGrid $grid $t 0
+            $btn = New-Button -Text 'Ne plus ignorer' -Style 'BtnSmall' -Tag $i -Window $window
+            $btn.Add_Click({
+                param($src, $e)
+                Remove-IgnoredUpdate -Device $src.Tag.Device -NewVersion $src.Tag.NewVersion -Settings $script:Settings
+                Update-All
+                Update-SettingsView
+            })
+            Add-ToGrid $grid $btn 1
+            [void]$ui.IgnoredPanel.Children.Add($grid)
+        }
+        $script:LoadingSettings = $false
+    }
+
+    function Save-Setting([string]$Name, [object]$Value) {
+        if ($script:LoadingSettings) { return }
+        $script:Settings.$Name = $Value
+        Save-AppSettings -Settings $script:Settings
+        Write-Log "Paramètre modifié : $Name = $Value"
+    }
+
     function Update-All {
         Update-Dashboard
         Update-UpdatesView
@@ -375,11 +582,11 @@ function Show-MainWindow {
         Update-Activity
     }
 
+    # ---------- Actions ----------
     function Start-Search {
         if ($script:CurrentJob) { return }
         Set-Busy $true 'Analyse en cours : NVIDIA et Windows Update (1 à 2 minutes)...'
-        $script:JobKind    = 'search'
-        $script:CurrentJob = Start-Job -ArgumentList $script:AppRoot -ScriptBlock {
+        Start-BackgroundJob 'search' @($script:AppRoot) {
             param($root)
             . (Join-Path $root 'src\Loader.ps1')
             Initialize-AppFolder
@@ -388,7 +595,6 @@ function Show-MainWindow {
             # JSON : les listes imbriquées survivent au passage entre processus
             [pscustomobject]@{ Updates = $upd; Inventory = $inv } | ConvertTo-Json -Depth 4 -Compress
         }
-        $timer.Start()
     }
 
     function Start-Install {
@@ -396,33 +602,64 @@ function Show-MainWindow {
         $selected = @(Get-CheckedUpdates | Where-Object { $_ })
         if ($selected.Count -eq 0) { return }
         $names = ($selected | ForEach-Object { "- $($_.Device) ($($_.CurrentVersion) -> $($_.NewVersion))" }) -join "`r`n"
-        if ([string](Show-Message "Installer ces pilotes ?`r`n`r`n$names" 'Confirmation' 'YesNo' 'Question') -ne 'Yes') { return }
+        $text  = "Installer ces pilotes ?`r`n`r`n$names`r`n`r`nLe pilote actuel sera sauvegardé avant (retour arrière possible dans « Sauvegardes »)."
+        if ((Show-Message $text 'Confirmation' 'YesNo' 'Question') -ne 'Yes') { return }
 
         Write-Log ("Installation validée par l'utilisateur : " + (($selected | ForEach-Object { $_.Device }) -join ', '))
-        Set-Busy $true 'Installation en cours... Ne pas éteindre l''ordinateur (l''écran peut clignoter).'
-        $script:JobKind    = 'install'
-        $script:CurrentJob = Start-Job -ArgumentList $script:AppRoot, $selected, ($ui.ChkRestore.IsChecked -eq $true) -ScriptBlock {
+        Set-Busy $true 'Préparation de l''installation...'
+        Start-BackgroundJob 'install' @($script:AppRoot, $selected, ($ui.ChkRestore.IsChecked -eq $true)) {
             param($root, $items, $restorePoint)
             . (Join-Path $root 'src\Loader.ps1')
             Initialize-AppFolder
             Install-DriverUpdate -Candidate $items -CreateRestorePoint:$restorePoint
         }
-        Update-InstallButton
-        $timer.Start()
+    }
+
+    function Start-Restore([object]$Backup) {
+        if ($script:CurrentJob) { [void](Show-Message 'Une opération est déjà en cours, patiente un peu.'); return }
+        $current = (@($script:Inventory) | Where-Object { $_.Name -eq $Backup.Device } | Select-Object -First 1).DriverVersion
+        $text = "Revenir à la version $($Backup.Version) de :`r`n$($Backup.Device) ?`r`n`r`nVersion actuelle : $current`r`n`r`n" +
+                "Windows va réinstaller de force l'ancienne version. L'écran ou le son peuvent couper quelques secondes."
+        if ((Show-Message $text 'Retour arrière' 'YesNo' 'Question') -ne 'Yes') { return }
+        Set-Busy $true "Retour arrière : $($Backup.Device)..."
+        Start-BackgroundJob 'install' @($script:AppRoot, $Backup.Path, ($ui.ChkRestore.IsChecked -eq $true)) {
+            param($root, $path, $restorePoint)
+            . (Join-Path $root 'src\Loader.ps1')
+            Initialize-AppFolder
+            Restore-DriverBackup -Path $path -CreateRestorePoint:$restorePoint
+        }
+    }
+
+    function Start-AppUpdate {
+        if ($script:CurrentJob -or -not $script:AppRelease) { return }
+        $r = $script:AppRelease
+        if ((Show-Message "Mettre à jour Driver en version $($r.Version) ?`r`n`r`nDriver se relancera tout seul à la fin." 'Mise à jour de Driver' 'YesNo' 'Question') -ne 'Yes') { return }
+        Set-Busy $true "Mise à jour de Driver en version $($r.Version)..."
+        Start-BackgroundJob 'selfupdate' @($script:AppRoot, $r.AssetUrl, $r.Version) {
+            param($root, $url, $version)
+            . (Join-Path $root 'src\Loader.ps1')
+            Initialize-AppFolder
+            Install-AppUpdate -AssetUrl $url -Version $version
+        }
+    }
+
+    function Show-AppUpdateBanner([object]$Release) {
+        $script:AppRelease = $Release
+        if (-not $Release) { $ui.AppUpdateBanner.Visibility = 'Collapsed'; return }
+        $ui.AppUpdateText.Text = "Une nouvelle version de Driver est disponible : $($Release.Version) (tu as la $($script:AppVersion))."
+        $ui.AppUpdateBanner.Visibility = 'Visible'
     }
 
     function Start-PackageAnalysis([string]$Path) {
         if ($script:CurrentJob) { [void](Show-Message 'Une opération est déjà en cours, patiente un peu.'); return }
         Write-Log "Paquet déposé : $Path"
         Set-Busy $true ("Analyse du paquet « {0} »..." -f (Split-Path $Path -Leaf))
-        $script:JobKind    = 'analyze'
-        $script:CurrentJob = Start-Job -ArgumentList $script:AppRoot, $Path -ScriptBlock {
+        Start-BackgroundJob 'analyze' @($script:AppRoot, $Path) {
             param($root, $p)
             . (Join-Path $root 'src\Loader.ps1')
             Initialize-AppFolder
             Get-DriverPackageAnalysis -Path $p | ConvertTo-Json -Depth 5
         }
-        $timer.Start()
     }
 
     function Select-Package {
@@ -492,7 +729,7 @@ function Show-MainWindow {
         if ($newer.Count -gt 0) {
             $text = "Pilotes plus récents trouvés pour ton matériel :`r`n" +
                 (($newer | ForEach-Object { "- $($_.Device) : $($_.CurrentVersion) -> $($_.PackageVersion)" }) -join "`r`n") +
-                "`r`n`r`n" + $text + 'Installer maintenant ?'
+                "`r`n`r`n" + $text + "Le pilote actuel sera sauvegardé avant.`r`nInstaller maintenant ?"
         }
         elseif ($older.Count -gt 0) {
             Set-Busy $false (Get-StatusLine)
@@ -516,28 +753,35 @@ function Show-MainWindow {
             return
         }
 
-        if ([string](Show-Message $text 'Installer le paquet' 'YesNo' 'Question') -ne 'Yes') {
+        if ((Show-Message $text 'Installer le paquet' 'YesNo' 'Question') -ne 'Yes') {
             Set-Busy $false (Get-StatusLine)
             return
         }
 
         Write-Log "Paquet manuel : installation validée par l'utilisateur ($($Analysis.Source))"
         Set-Busy $true 'Installation du paquet en cours... (l''écran ou le son peuvent couper quelques secondes)'
-        $script:JobKind    = 'install'
-        $script:CurrentJob = Start-Job -ArgumentList $script:AppRoot, $Json, ($ui.ChkRestore.IsChecked -eq $true) -ScriptBlock {
+        Start-BackgroundJob 'install' @($script:AppRoot, $Json, ($ui.ChkRestore.IsChecked -eq $true)) {
             param($root, $json, $restorePoint)
             . (Join-Path $root 'src\Loader.ps1')
             Initialize-AppFolder
             Install-DriverPackage -Analysis ($json | ConvertFrom-Json) -CreateRestorePoint:$restorePoint
         }
-        $timer.Start()
     }
 
     # ---------- Surveillance du job en arrière-plan ----------
     $timer = New-Object System.Windows.Threading.DispatcherTimer
     $timer.Interval = [TimeSpan]::FromMilliseconds(500)
     $timer.Add_Tick({
-        if (-not $script:CurrentJob) { return }
+        if (-not $script:CurrentJob) { $timer.Stop(); return }
+
+        # Progression écrite par le job (étape, %, Mo/s)
+        $p = Get-TaskProgress
+        if ($p -and $p.Stage) {
+            $ui.StatusText.Text = if ($p.Detail) { "$($p.Stage) — $($p.Detail)" } else { [string]$p.Stage }
+            if ([int]$p.Percent -ge 0) { $ui.Busy.IsIndeterminate = $false; $ui.Busy.Value = [int]$p.Percent }
+            else { $ui.Busy.IsIndeterminate = $true }
+        }
+
         if ([string]$script:CurrentJob.State -notin @('Completed', 'Failed', 'Stopped')) { return }
 
         $timer.Stop()
@@ -549,56 +793,74 @@ function Show-MainWindow {
         $errText = (@($jobErrors) | Where-Object { $_ } | ForEach-Object { $_.ToString() }) -join "`r`n"
         if ($errText) { Write-Log "Erreur dans la tâche de fond ($($script:JobKind)) : $errText" 'ERREUR' }
 
-        if ($script:JobKind -eq 'search') {
-            $json = ($output | Where-Object { $_ -is [string] }) -join "`n"
-            if ($json) {
-                $data = $json | ConvertFrom-Json
-                $script:Updates    = @($data.Updates | Where-Object { $_ })
-                $script:Inventory  = @($data.Inventory | Where-Object { $_ })
-                $script:LastSearch = Get-Date
-                Update-All
-                Set-Busy $false (Get-StatusLine)
-            } else {
-                Set-Busy $false 'L''analyse a échoué : consulte les journaux.'
-            }
-        }
-        elseif ($script:JobKind -eq 'analyze') {
-            $json = ($output | Where-Object { $_ -is [string] }) -join "`n"
-            if ($failed -or -not $json) {
-                Set-Busy $false (Get-StatusLine)
-                [void](Show-Message "Impossible d'analyser ce paquet.`r`n`r`n$errText" 'Driver' 'OK' 'Error')
-            } else {
-                Confirm-PackageInstall -Analysis ($json | ConvertFrom-Json) -Json $json
-            }
-        }
-        elseif ($script:JobKind -eq 'install') {
-            $results = @($output | Where-Object { $_ -and $_.PSObject.Properties['Success'] })
-            $ok      = @($results | Where-Object { $_.Success }).Count
-            $reboot  = @($results | Where-Object { $_.RebootRequired }).Count -gt 0
-
-            $msg = "$ok opération(s) réussie(s) sur $($results.Count)."
-            if ($results.Count -gt 0) {
-                $msg += "`r`n`r`n" + (($results | ForEach-Object { "- $($_.Device) : $($_.Message)" }) -join "`r`n")
-            }
-            if ($errText) { $msg += "`r`n`r`nErreur : $errText" }
-            Set-Busy $false 'Installation terminée.'
-            Update-Activity
-
-            if ($reboot) {
-                if ([string](Show-Message "$msg`r`n`r`nUn redémarrage est nécessaire. Redémarrer maintenant ?" 'Driver' 'YesNo' 'Question') -eq 'Yes') {
-                    Restart-Computer -Force
+        switch ($script:JobKind) {
+            'search' {
+                $json = ($output | Where-Object { $_ -is [string] }) -join "`n"
+                if ($json) {
+                    $data = $json | ConvertFrom-Json
+                    $script:Updates    = @($data.Updates | Where-Object { $_ })
+                    $script:Inventory  = @($data.Inventory | Where-Object { $_ })
+                    $script:LastSearch = Get-Date
+                    Update-All
+                    Set-Busy $false (Get-StatusLine)
+                } else {
+                    Set-Busy $false 'L''analyse a échoué : consulte les journaux.'
                 }
-            } else {
-                [void](Show-Message $msg)
             }
-            Start-Search
+            'analyze' {
+                $json = ($output | Where-Object { $_ -is [string] }) -join "`n"
+                if ($failed -or -not $json) {
+                    Set-Busy $false (Get-StatusLine)
+                    [void](Show-Message "Impossible d'analyser ce paquet.`r`n`r`n$errText" 'Driver' 'OK' 'Error')
+                } else {
+                    Confirm-PackageInstall -Analysis ($json | ConvertFrom-Json) -Json $json
+                }
+            }
+            'selfupdate' {
+                $r = $output | Where-Object { $_ -and $_.PSObject.Properties['Success'] } | Select-Object -First 1
+                Set-Busy $false (Get-StatusLine)
+                if ($r -and $r.Success) {
+                    [void](Show-Message "$($r.Message).`r`n`r`nDriver va redémarrer pour utiliser la nouvelle version." 'Mise à jour de Driver')
+                    $script:RestartRequested = $true
+                    $window.Close()
+                } else {
+                    $why = if ($r) { $r.Message } else { $errText }
+                    [void](Show-Message "La mise à jour de Driver a échoué.`r`n`r`n$why" 'Mise à jour de Driver' 'OK' 'Error')
+                }
+            }
+            'install' {
+                $results = @($output | Where-Object { $_ -and $_.PSObject.Properties['Success'] })
+                $ok      = @($results | Where-Object { $_.Success }).Count
+                $reboot  = @($results | Where-Object { $_.RebootRequired }).Count -gt 0
+
+                $msg = "$ok opération(s) réussie(s) sur $($results.Count)."
+                if ($results.Count -gt 0) {
+                    $msg += "`r`n`r`n" + (($results | ForEach-Object { "- $($_.Device) : $($_.Message)" }) -join "`r`n")
+                }
+                if ($errText) { $msg += "`r`n`r`nErreur : $errText" }
+                Set-Busy $false 'Opération terminée.'
+                Update-Activity
+                if ($ui.ViewBackups.Visibility -eq 'Visible') { Update-BackupsView }
+
+                if ($reboot) {
+                    if ((Show-Message "$msg`r`n`r`nUn redémarrage est nécessaire. Redémarrer maintenant ?" 'Driver' 'YesNo' 'Question') -eq 'Yes') {
+                        Restart-Computer -Force
+                    }
+                } else {
+                    [void](Show-Message $msg)
+                }
+                Start-Search
+            }
         }
     })
 
-    # ---------- Événements ----------
+    # ---------- Événements : menu et boutons ----------
     $ui.NavDashboard.Add_Click({ Set-View 'dashboard' })
     $ui.NavUpdates.Add_Click({ Set-View 'updates' })
     $ui.NavAll.Add_Click({ Set-View 'all' })
+    $ui.NavBackups.Add_Click({ Set-View 'backups' })
+    $ui.NavHistory.Add_Click({ Set-View 'history' })
+    $ui.NavSettings.Add_Click({ Set-View 'settings' })
     $ui.NavPackage.Add_Click({ Select-Package })
     $ui.NavBoard.Add_Click({
         $url = Get-MotherboardSupportUrl -Board $script:Board
@@ -609,7 +871,67 @@ function Show-MainWindow {
     $ui.BtnSearch.Add_Click({ Start-Search })
     $ui.BtnInstall.Add_Click({ Start-Install })
     $ui.DropZone.Add_MouseLeftButtonUp({ Select-Package })
+    $ui.BtnAppUpdate.Add_Click({ Start-AppUpdate })
+    $ui.BtnAppUpdateLater.Add_Click({ $ui.AppUpdateBanner.Visibility = 'Collapsed' })
 
+    $ui.BtnBackupsClear.Add_Click({
+        if ((Show-Message "Supprimer TOUTES les sauvegardes de pilotes ?`r`n`r`nLe retour arrière ne sera plus possible." 'Sauvegardes' 'YesNo' 'Warning') -eq 'Yes') {
+            Clear-AllBackups
+            Update-BackupsView
+        }
+    })
+
+    $ui.BtnReport.Add_Click({
+        $window.Cursor = [System.Windows.Input.Cursors]::Wait
+        try {
+            $path = Export-DriverReport
+            Start-Process $path
+            $ui.StatusText.Text = "Rapport enregistré sur le Bureau : $(Split-Path $path -Leaf)"
+        } catch {
+            [void](Show-Message "Impossible de créer le rapport : $($_.Exception.Message)" 'Rapport' 'OK' 'Error')
+        } finally {
+            $window.Cursor = $null
+        }
+    })
+
+    # ---------- Événements : paramètres (enregistrés à chaque changement) ----------
+    $ui.RbFreqStartup.Add_Checked({ Save-Setting 'CheckFrequency' 'Startup' })
+    $ui.RbFreqDaily.Add_Checked({   Save-Setting 'CheckFrequency' 'Daily' })
+    $ui.RbFreqWeekly.Add_Checked({  Save-Setting 'CheckFrequency' 'Weekly' })
+    $ui.RbFreqNever.Add_Checked({   Save-Setting 'CheckFrequency' 'Never' })
+    $ui.ChkNotify.Add_Click({       Save-Setting 'Notifications' ($ui.ChkNotify.IsChecked -eq $true) })
+    $ui.RbGameReady.Add_Checked({   Save-Setting 'NvidiaBranch' 'GameReady' })
+    $ui.RbStudio.Add_Checked({      Save-Setting 'NvidiaBranch' 'Studio' })
+    $ui.RbLight.Add_Checked({ Save-Setting 'Theme' 'Light'; Set-Theme 'Light' })
+    $ui.RbDark.Add_Checked({  Save-Setting 'Theme' 'Dark';  Set-Theme 'Dark' })
+    foreach ($n in @(1, 2, 3, 5)) {
+        $ui["RbKeep$n"].Tag = $n
+        $ui["RbKeep$n"].Add_Checked({
+            param($s, $e)
+            if ($script:LoadingSettings) { return }
+            Save-Setting 'BackupKeep' ([int]$s.Tag)
+            Limit-AllBackups -Keep ([int]$s.Tag)
+            $ui.BackupSizeText.Text = "Espace utilisé actuellement par les sauvegardes : $(Format-Size (Get-BackupTotalSizeMB))"
+        })
+    }
+    $ui.ChkAutoUpdate.Add_Click({ Save-Setting 'AutoUpdateCheck' ($ui.ChkAutoUpdate.IsChecked -eq $true) })
+    $ui.BtnCheckAppUpdate.Add_Click({
+        $window.Cursor = [System.Windows.Input.Cursors]::Wait
+        try {
+            $latest = Get-LatestAppRelease
+            if ((Compare-DriverVersion -A $latest.Version -B $script:AppVersion) -eq 1 -and $latest.AssetUrl) {
+                Show-AppUpdateBanner $latest
+            } else {
+                [void](Show-Message "Tu as déjà la dernière version de Driver ($($script:AppVersion))." 'Driver')
+            }
+        } catch {
+            [void](Show-Message "Impossible de joindre GitHub : $($_.Exception.Message)" 'Driver' 'OK' 'Warning')
+        } finally {
+            $window.Cursor = $null
+        }
+    })
+
+    # ---------- Fenêtre ----------
     $window.Add_SourceInitialized({
         $hwnd = (New-Object System.Windows.Interop.WindowInteropHelper($window)).Handle
         # Barre de titre bleu nuit (#12263A) et texte blanc - format 0x00BBGGRR
@@ -628,7 +950,7 @@ function Show-MainWindow {
 
     $window.Add_Closing({
         param($s, $e)
-        if ($script:CurrentJob -and $script:JobKind -eq 'install') {
+        if ($script:CurrentJob -and $script:JobKind -in @('install', 'selfupdate')) {
             [void](Show-Message 'Une installation est en cours, merci de patienter.' 'Driver' 'OK' 'Warning')
             $e.Cancel = $true
         }
@@ -646,7 +968,7 @@ function Show-MainWindow {
         Set-View 'dashboard'
         Update-PcInfo
         if ($InitialResults) {
-            # Lancement au démarrage : la recherche est déjà faite
+            # Lancement au démarrage : l'analyse est déjà faite
             $script:Updates    = @($InitialResults | Where-Object { $_ })
             $script:Inventory  = @(Get-DeviceInventory)
             $script:LastSearch = Get-Date
@@ -662,8 +984,10 @@ function Show-MainWindow {
             Update-All
             Set-Busy $false (Get-StatusLine)
         }
+        if ($script:Settings.AutoUpdateCheck) { Show-AppUpdateBanner (Test-AppUpdate) }
     })
 
+    Set-Theme $script:Settings.Theme
     [void]$window.ShowDialog()
     $timer.Stop()
 }
