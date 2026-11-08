@@ -30,6 +30,28 @@ function Get-DeviceInventory {
         }
 }
 
+function Get-VendorDriverList {
+    <#
+        Liste "lisible" des pilotes installés pour l'affichage complet dans la fenêtre :
+        on garde les pilotes fournis par les constructeurs (Intel, Realtek, NVIDIA,
+        TP-Link...) et on écarte les pilotes génériques de Windows (volumes, files
+        d'impression, "(Standard ...)") qui ne se mettent pas à jour séparément.
+        Les doublons (ex. 16 x "Intel Processor") sont regroupés.
+    #>
+    param([object[]]$Inventory)
+    if (-not $Inventory) { $Inventory = @(Get-DeviceInventory) }
+
+    $Inventory |
+        Where-Object {
+            $_.Manufacturer -and
+            $_.Manufacturer -notmatch '^\(' -and                 # (Standard system devices), (Types de port standard)...
+            $_.Manufacturer -notmatch '^Microsoft' -and
+            $_.Class -notin @('VOLUME', 'VOLUMESNAPSHOT', 'AUDIOENDPOINT', 'PRINTQUEUE', 'SOFTWAREDEVICE', 'COMPUTER')
+        } |
+        Sort-Object Name, DriverVersion -Unique |
+        Sort-Object Manufacturer, Name
+}
+
 function Find-InventoryDevice {
     <# Retrouve un périphérique de l'inventaire à partir d'un Hardware ID (Windows Update). #>
     param([object[]]$Inventory, [string]$HardwareId)

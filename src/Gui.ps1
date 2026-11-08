@@ -18,6 +18,8 @@ function Show-MainWindow {
     [System.Windows.Forms.Application]::EnableVisualStyles()
     $script:CurrentJob = $null
     $script:JobKind    = $null
+    $script:LastResults   = @()
+    $script:VendorDrivers = $null
 
     # ---------- Fenêtre ----------
     $form = New-Object System.Windows.Forms.Form
@@ -57,10 +59,11 @@ function Show-MainWindow {
     $btnInstall = New-Object System.Windows.Forms.Button -Property @{ Text = 'Installer la sélection'; Width = 160; Height = 30; Enabled = $false }
     $btnLogs    = New-Object System.Windows.Forms.Button -Property @{ Text = 'Journaux'; Width = 90; Height = 30 }
     $btnClose   = New-Object System.Windows.Forms.Button -Property @{ Text = 'Fermer'; Width = 90; Height = 30 }
+    $chkAll     = New-Object System.Windows.Forms.CheckBox -Property @{ Text = 'Afficher tous les pilotes'; Checked = $false; AutoSize = $true; Margin = (New-Object System.Windows.Forms.Padding(12, 8, 0, 0)) }
     $chkRestore = New-Object System.Windows.Forms.CheckBox -Property @{ Text = 'Créer un point de restauration'; Checked = $true; AutoSize = $true; Margin = (New-Object System.Windows.Forms.Padding(12, 8, 12, 0)) }
     $progress   = New-Object System.Windows.Forms.ProgressBar -Property @{ Width = 150; Height = 20; Style = 'Marquee'; Visible = $false; Margin = (New-Object System.Windows.Forms.Padding(6, 6, 0, 0)) }
 
-    $panel.Controls.AddRange(@($btnSearch, $btnInstall, $chkRestore, $btnLogs, $btnClose, $progress))
+    $panel.Controls.AddRange(@($btnSearch, $btnInstall, $chkRestore, $chkAll, $btnLogs, $btnClose, $progress))
     $form.Controls.Add($lblStatus)
     $form.Controls.Add($panel)
     $form.Controls.Add($list)
@@ -76,8 +79,10 @@ function Show-MainWindow {
     }
 
     function Update-ResultList([object[]]$Results) {
+        $script:LastResults = @($Results | Where-Object { $_ })
+        $list.BeginUpdate()
         $list.Items.Clear()
-        foreach ($r in $Results) {
+        foreach ($r in $script:LastResults) {
             if (-not $r) { continue }
             $item = New-Object System.Windows.Forms.ListViewItem([string]$r.Device)
             [void]$item.SubItems.Add([string]$r.Source)
@@ -90,17 +95,40 @@ function Show-MainWindow {
             $item.Tag     = $r
             [void]$list.Items.Add($item)
         }
+
+        # Option "Afficher tous les pilotes" : on ajoute en gris ceux qui sont à jour
+        if ($chkAll.Checked) {
+            if (-not $script:VendorDrivers) { $script:VendorDrivers = @(Get-VendorDriverList) }
+            $withUpdate = @($script:LastResults | ForEach-Object { $_.Device })
+            foreach ($d in $script:VendorDrivers) {
+                if ($withUpdate -contains $d.Name) { continue }
+                $item = New-Object System.Windows.Forms.ListViewItem([string]$d.Name)
+                [void]$item.SubItems.Add([string]$d.Manufacturer)
+                [void]$item.SubItems.Add([string]$d.DriverVersion)
+                [void]$item.SubItems.Add('À jour')
+                [void]$item.SubItems.Add('')
+                $item.ForeColor   = [System.Drawing.Color]::Gray
+                $item.ToolTipText = [string]$d.HardwareId
+                $item.Tag         = $null      # rien à installer
+                [void]$list.Items.Add($item)
+            }
+        }
+        $list.EndUpdate()
         $list.ShowItemToolTips = $true
-        if ($list.Items.Count -eq 0) {
+
+        $count = $script:LastResults.Count
+        if ($count -eq 0) {
             Set-Busy $false 'Tous les pilotes sont à jour.'
         } else {
-            Set-Busy $false ("{0} mise(s) à jour disponible(s). Coche celles à installer puis clique sur « Installer la sélection »." -f $list.Items.Count)
+            Set-Busy $false ("{0} mise(s) à jour disponible(s). Coche celles à installer puis clique sur « Installer la sélection »." -f $count)
         }
+        $btnInstall.Enabled = ($count -gt 0)
     }
 
     function Start-Search {
         Set-Busy $true 'Recherche des mises à jour en cours (cela peut prendre 1 à 2 minutes)...'
         $list.Items.Clear()
+        $script:VendorDrivers = $null   # l'inventaire sera relu après la recherche
         $script:JobKind    = 'search'
         $script:CurrentJob = Start-Job -ArgumentList $script:AppRoot -ScriptBlock {
             param($root)
@@ -152,8 +180,19 @@ function Show-MainWindow {
     # ---------- Événements des boutons ----------
     $btnSearch.Add_Click({ Start-Search })
 
+    # Bascule "Afficher tous les pilotes" (sans relancer de recherche)
+    $chkAll.Add_CheckedChanged({
+        if (-not $script:CurrentJob) { Update-ResultList $script:LastResults }
+    })
+
+    # Les lignes "À jour" ne peuvent pas être cochées
+    $list.Add_ItemCheck({
+        param($s, $e)
+        if ($null -eq $list.Items[$e.Index].Tag) { $e.NewValue = [System.Windows.Forms.CheckState]::Unchecked }
+    })
+
     $btnInstall.Add_Click({
-        $selected = @($list.CheckedItems | ForEach-Object { $_.Tag })
+        $selected = @($list.CheckedItems | ForEach-Object { $_.Tag } | Where-Object { $_ })
         if ($selected.Count -eq 0) {
             [void][System.Windows.Forms.MessageBox]::Show('Aucun pilote coché.', 'Driver', 'OK', 'Warning')
             return
