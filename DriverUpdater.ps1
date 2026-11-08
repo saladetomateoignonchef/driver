@@ -35,7 +35,17 @@ Initialize-AppFolder
 # --- Une seule instance à la fois ---
 $created = $false
 $mutex = New-Object System.Threading.Mutex($true, 'Global\DriverUpdater', [ref]$created)
-if (-not $created) { Write-Log 'Une instance est déjà lancée, arrêt.' 'WARN'; exit }
+if (-not $created) {
+    Write-Log 'Une instance est déjà lancée, arrêt.' 'WARN'
+    if (-not $Startup) {
+        # Lancement manuel : on prévient l'utilisateur au lieu de quitter sans rien dire
+        Add-Type -AssemblyName System.Windows.Forms
+        [void][System.Windows.Forms.MessageBox]::Show(
+            "Driver est déjà en cours d'exécution (une vérification tourne peut-être en arrière-plan).`r`nRéessaie dans 2 minutes.",
+            'Driver', 'OK', 'Information')
+    }
+    exit
+}
 
 try {
     if ($Startup) {
