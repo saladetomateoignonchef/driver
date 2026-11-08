@@ -15,31 +15,66 @@ function Get-UpdateRepo {
     return $repo
 }
 
+function Get-LatestTagFromWeb {
+    <#
+        Plan B sans l'API : github.com/<dépôt>/releases/latest redirige vers
+        .../releases/tag/vX.Y.Z ; on lit simplement l'adresse de redirection.
+    #>
+    param([string]$Repo)
+    $req = [System.Net.HttpWebRequest]::Create("https://github.com/$Repo/releases/latest")
+    $req.Method            = 'HEAD'
+    $req.AllowAutoRedirect = $false
+    $req.UserAgent         = $script:UserAgent
+    $req.Timeout           = 15000
+    $resp = $req.GetResponse()
+    try { $location = [string]$resp.Headers['Location'] } finally { $resp.Close() }
+    if ($location -match '/releases/tag/([^/?#]+)$') { return $Matches[1] }
+    throw "Redirection inattendue : $location"
+}
+
 function Get-LatestAppRelease {
-    $uri = "https://api.github.com/repos/$(Get-UpdateRepo)/releases/latest"
-    # 3 tentatives : l'API GitHub répond parfois « 503 Server Unavailable » de façon passagère
-    $rel = $null
-    for ($i = 1; $i -le 3; $i++) {
+    <#
+        Dernière version publiée. Trois liens de téléchargement, essayés dans l'ordre :
+        AssetUrl (API GitHub), AssetWebUrl (lien classique), ArchiveUrl (archive du code).
+        Si l'API GitHub ne répond pas (503/504 passagers), plan B par la page web.
+    #>
+    $repo = Get-UpdateRepo
+    $rel  = $null
+    for ($i = 1; $i -le 2; $i++) {
         try {
-            $rel = Invoke-RestMethod -Uri $uri -UseBasicParsing -TimeoutSec 10 -UserAgent $script:UserAgent `
-                -Headers @{ 'Accept' = 'application/vnd.github+json' }
+            # -UserAgent (et non un en-tête « User-Agent ») : méthode prévue par Windows PowerShell 5.1
+            $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -UseBasicParsing -TimeoutSec 10 `
+                -UserAgent $script:UserAgent -Headers @{ 'Accept' = 'application/vnd.github+json' }
             break
         } catch {
-            Write-Log "API GitHub : tentative $i/3 échouée ($($_.Exception.Message))" 'WARN'
-            if ($i -eq 3) { throw }
-            Start-Sleep -Seconds (2 * $i)
+            Write-Log "API GitHub : tentative $i/2 échouée ($($_.Exception.Message))" 'WARN'
+            if ($i -lt 2) { Start-Sleep -Seconds 2 }
         }
     }
-    $asset = @($rel.assets | Where-Object { $_.name -like '*.zip' }) | Select-Object -First 1
+
+    if ($rel) {
+        $tag   = [string]$rel.tag_name
+        $asset = @($rel.assets | Where-Object { $_.name -like '*.zip' }) | Select-Object -First 1
+        $api   = if ($asset) { [string]$asset.url } else { $null }
+        $web   = if ($asset) { [string]$asset.browser_download_url } else { $null }
+        $notes = [string]$rel.body; $page = [string]$rel.html_url
+    } else {
+        $tag = Get-LatestTagFromWeb -Repo $repo       # lève une erreur si GitHub est vraiment injoignable
+        Write-Log "Dernière version trouvée par la page web (plan B) : $tag" 'WARN'
+        $api = $null
+        $web = "https://github.com/$repo/releases/download/$tag/driver-$tag.zip"
+        $notes = ''; $page = "https://github.com/$repo/releases/tag/$tag"
+    }
+    $archive = "https://codeload.github.com/$repo/zip/refs/tags/$tag"
+    $primary = if ($api) { $api } else { $web }
     [pscustomobject]@{
-        Version  = ([string]$rel.tag_name).TrimStart('v', 'V')
-        Tag      = [string]$rel.tag_name
-        Notes    = [string]$rel.body
-        PageUrl  = [string]$rel.html_url
-        # Lien de l'API (fiable) + lien classique en secours : le lien classique
-        # github.com/.../releases/download/... a déjà renvoyé des erreurs 504.
-        AssetUrl = if ($asset) { [string]$asset.url } else { $null }
-        AssetWebUrl = if ($asset) { [string]$asset.browser_download_url } else { $null }
+        Version     = $tag.TrimStart('v', 'V')
+        Tag         = $tag
+        Notes       = $notes
+        PageUrl     = $page
+        AssetUrl    = $primary
+        AssetWebUrl = $web
+        ArchiveUrl  = $archive
     }
 }
 
@@ -58,21 +93,27 @@ function Test-AppUpdate {
 }
 
 function Install-AppUpdate {
-    param([Parameter(Mandatory)][string]$AssetUrl, [Parameter(Mandatory)][string]$Version, [string]$AssetWebUrl)
+    param([Parameter(Mandatory)][string]$AssetUrl, [Parameter(Mandatory)][string]$Version, [string]$AssetWebUrl, [string]$ArchiveUrl)
 
     $work = Join-Path $script:DownloadDir "driver-update-$Version"
     if (Test-Path $work) { Remove-Item -Path $work -Recurse -Force }
     New-Item -ItemType Directory -Path $work -Force | Out-Null
     $zip = Join-Path $work 'driver.zip'
 
-    try {
-        # API GitHub : "Accept: application/octet-stream" renvoie le fichier lui-même
-        Invoke-FileDownload -Url $AssetUrl -OutFile $zip -Label "Driver $Version" -Accept 'application/octet-stream'
-    } catch {
-        if (-not $AssetWebUrl) { throw }
-        Write-Log "Téléchargement via l'API impossible, essai du lien classique : $AssetWebUrl" 'WARN'
-        Invoke-FileDownload -Url $AssetWebUrl -OutFile $zip -Label "Driver $Version"
+    # Plusieurs sources, essayées dans l'ordre (GitHub a parfois des pannes passagères)
+    $sources = @(@($AssetUrl, $AssetWebUrl, $ArchiveUrl) | Where-Object { $_ } | Select-Object -Unique)
+    $ok = $false
+    foreach ($url in $sources) {
+        try {
+            $accept = if ($url -like 'https://api.github.com/*') { 'application/octet-stream' } else { $null }
+            Invoke-FileDownload -Url $url -OutFile $zip -Label "Driver $Version" -Accept $accept -Attempts 2
+            $ok = $true
+            break
+        } catch {
+            Write-Log "Téléchargement de Driver impossible depuis $url : $($_.Exception.Message)" 'WARN'
+        }
     }
+    if (-not $ok) { throw (T 'GitHubUnreachable' 'download') }
     Set-TaskProgress -Stage (T 'StageAppInstall' $Version)
     Expand-Archive -Path $zip -DestinationPath (Join-Path $work 'files') -Force
     Get-ChildItem -Path $work -Recurse -File | Unblock-File

@@ -26,33 +26,46 @@ try {
     Write-Host '  Driver - installation' -ForegroundColor Cyan
     Write-Host '  ---------------------'
     Write-Host '  1/4 Recherche de la dernière version sur GitHub...'
-    for ($i = 1; $i -le 4; $i++) {
+    $tag = $null; $sources = @()
+    for ($i = 1; $i -le 2 -and -not $tag; $i++) {
         try {
             $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -UseBasicParsing -UserAgent 'Driver-Installer'
-            break
+            $tag = $release.tag_name
+            $asset = @($release.assets | Where-Object { $_.name -like '*.zip' }) | Select-Object -First 1
+            if ($asset) { $sources += @{ Url = $asset.url; Accept = 'application/octet-stream' }; $sources += @{ Url = $asset.browser_download_url } }
         } catch {
-            if ($i -eq 4) { throw }
-            Write-Host "      GitHub ne répond pas, nouvelle tentative ($i/4)..." -ForegroundColor Yellow
-            Start-Sleep -Seconds (3 * $i)
+            Write-Host "      API GitHub indisponible ($($_.Exception.Message)), nouvelle tentative..." -ForegroundColor Yellow
+            Start-Sleep -Seconds 3
         }
     }
-    $asset = @($release.assets | Where-Object { $_.name -like '*.zip' }) | Select-Object -First 1
-    if (-not $asset) { throw 'Aucun fichier ZIP dans la dernière version publiée.' }
-    Write-Host "      Version $($release.tag_name)"
+    if (-not $tag) {
+        # Plan B sans l'API : la page /releases/latest redirige vers /releases/tag/vX.Y.Z
+        $req = [System.Net.HttpWebRequest]::Create("https://github.com/$repo/releases/latest")
+        $req.Method = 'HEAD'; $req.AllowAutoRedirect = $false; $req.UserAgent = 'Driver-Installer'
+        $resp = $req.GetResponse(); $location = [string]$resp.Headers['Location']; $resp.Close()
+        if ($location -notmatch '/releases/tag/([^/?#]+)$') { throw "GitHub est injoignable pour le moment, réessaie plus tard." }
+        $tag = $Matches[1]
+        $sources += @{ Url = "https://github.com/$repo/releases/download/$tag/driver-$tag.zip" }
+    }
+    $sources += @{ Url = "https://codeload.github.com/$repo/zip/refs/tags/$tag" }   # archive du code, en dernier recours
+    Write-Host "      Version $tag"
 
     Write-Host '  2/4 Téléchargement...'
     New-Item -ItemType Directory -Path $work -Force | Out-Null
     $zip = Join-Path $work 'driver.zip'
-    for ($i = 1; $i -le 3; $i++) {
+    $downloaded = $false
+    foreach ($src in $sources) {
         try {
-            Invoke-WebRequest -Uri $asset.url -OutFile $zip -UseBasicParsing -UserAgent 'Driver-Installer' -Headers @{ 'Accept' = 'application/octet-stream' }
+            $headers = @{}
+            if ($src.Accept) { $headers['Accept'] = $src.Accept }
+            Invoke-WebRequest -Uri $src.Url -OutFile $zip -UseBasicParsing -UserAgent 'Driver-Installer' -Headers $headers
+            $downloaded = $true
             break
         } catch {
-            if ($i -eq 3) { throw }
-            Write-Host "      Nouvelle tentative ($i/3)..." -ForegroundColor Yellow
-            Start-Sleep -Seconds (3 * $i)
+            Write-Host "      Source indisponible, essai de la suivante..." -ForegroundColor Yellow
         }
     }
+    if (-not $downloaded) { throw "Téléchargement impossible : GitHub ne répond pas, réessaie plus tard." }
 
     Write-Host '  3/4 Extraction...'
     Expand-Archive -Path $zip -DestinationPath (Join-Path $work 'files') -Force
@@ -65,7 +78,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Install.ps1 a échoué (code $LASTEXITCODE)." }
 
     Write-Host ''
-    Write-Host "  Driver $($release.tag_name) est installé. Un raccourci « Driver » est sur le Bureau." -ForegroundColor Green
+    Write-Host "  Driver $tag est installé. Un raccourci « Driver » est sur le Bureau." -ForegroundColor Green
     $main = Join-Path $env:ProgramFiles 'DriverUpdater\DriverUpdater.ps1'
     if (-not $env:CI) { Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$main`"") }
 } catch {

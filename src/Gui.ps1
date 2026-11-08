@@ -889,11 +889,11 @@ function Show-MainWindow {
             if ((Show-Message (T 'AppUpdateConfirm' $r.Version) (T 'AppUpdateTitle') 'YesNo' 'Question') -ne 'Yes') { return }
         }
         Set-Busy $true (T 'BusyAppUpdate' $r.Version)
-        Start-BackgroundJob 'selfupdate' @($script:AppRoot, $r.AssetUrl, $r.Version, $r.AssetWebUrl) {
-            param($root, $url, $version, $webUrl)
+        Start-BackgroundJob 'selfupdate' @($script:AppRoot, $r.AssetUrl, $r.Version, $r.AssetWebUrl, $r.ArchiveUrl) {
+            param($root, $url, $version, $webUrl, $archiveUrl)
             . (Join-Path $root 'src\Loader.ps1')
             Initialize-AppFolder
-            Install-AppUpdate -AssetUrl $url -Version $version -AssetWebUrl $webUrl
+            Install-AppUpdate -AssetUrl $url -Version $version -AssetWebUrl $webUrl -ArchiveUrl $archiveUrl
         }
     }
 
