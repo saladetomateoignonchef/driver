@@ -57,6 +57,10 @@ function Get-NvidiaLatestDriver {
 function Get-NvidiaDownloadSize {
     <# Taille en Mo : d'abord depuis le texte renvoyé par l'API, sinon via l'en-tête Content-Length. #>
     param([string]$Url, [string]$SizeText)
+    # L'API renvoie par exemple "1.04 GB" ou "650.12 MB"
+    if ($SizeText -match '([\d]+(?:[\.,]\d+)?)\s*(GB|Go)') {
+        return [math]::Round([double]($Matches[1] -replace ',', '.') * 1024, 1)
+    }
     if ($SizeText -match '([\d]+(?:[\.,]\d+)?)\s*(MB|Mo)') {
         return [double]($Matches[1] -replace ',', '.')
     }
