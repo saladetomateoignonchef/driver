@@ -124,10 +124,10 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ## Publier une nouvelle version
 
-1. Changer `$script:AppVersion` dans `src/Common.ps1` (ex. `2.1.0`).
-2. Créer et pousser le tag correspondant : `git tag v2.1.0` puis `git push origin v2.1.0`.
-3. GitHub Actions teste le code sur Windows ; si tout passe, le ZIP est publié dans **Releases**
-   et les Driver installés proposent la mise à jour.
+1. Changer `$script:AppVersion` dans `src/Common.ps1` (ex. `2.1.0`) et pousser sur `main`.
+2. GitHub Actions teste le code sur Windows ; si tout passe et que cette version n'existe pas encore,
+   il crée le tag `v2.1.0` et publie le ZIP dans **Releases**.
+3. Les Driver installés affichent alors le bandeau « Nouvelle version disponible ».
 
 ## Tests
 
