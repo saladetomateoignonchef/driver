@@ -3,7 +3,7 @@
 # =============================================================================
 
 $script:AppName      = 'DriverUpdater'
-$script:AppVersion   = '2.2.0'                              # une nouvelle valeur poussée sur main = nouvelle version publiée
+$script:AppVersion   = '2.2.1'                              # une nouvelle valeur poussée sur main = nouvelle version publiée
 $script:GitHubRepo   = 'saladetomateoignonchef/driver'      # source par défaut (modifiable dans Paramètres)
 $script:DataDir      = Join-Path $env:ProgramData 'DriverUpdater'
 $script:LogDir       = Join-Path $script:DataDir 'logs'

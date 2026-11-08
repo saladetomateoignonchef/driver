@@ -17,10 +17,9 @@ function Get-UpdateRepo {
 
 function Get-LatestAppRelease {
     $uri = "https://api.github.com/repos/$(Get-UpdateRepo)/releases/latest"
-    $rel = Invoke-RestMethod -Uri $uri -UseBasicParsing -TimeoutSec 6 -Headers @{
-        'User-Agent' = $script:UserAgent
-        'Accept'     = 'application/vnd.github+json'
-    }
+    # -UserAgent (et non un en-tête « User-Agent ») : méthode prévue par Windows PowerShell 5.1
+    $rel = Invoke-RestMethod -Uri $uri -UseBasicParsing -TimeoutSec 10 -UserAgent $script:UserAgent `
+        -Headers @{ 'Accept' = 'application/vnd.github+json' }
     $asset = @($rel.assets | Where-Object { $_.name -like '*.zip' }) | Select-Object -First 1
     [pscustomobject]@{
         Version  = ([string]$rel.tag_name).TrimStart('v', 'V')

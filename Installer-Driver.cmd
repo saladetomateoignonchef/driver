@@ -26,7 +26,7 @@ try {
     Write-Host '  Driver - installation' -ForegroundColor Cyan
     Write-Host '  ---------------------'
     Write-Host '  1/4 Recherche de la dernière version sur GitHub...'
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -UseBasicParsing -Headers @{ 'User-Agent' = 'Driver-Installer' }
+    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -UseBasicParsing -UserAgent 'Driver-Installer'
     $asset = @($release.assets | Where-Object { $_.name -like '*.zip' }) | Select-Object -First 1
     if (-not $asset) { throw 'Aucun fichier ZIP dans la dernière version publiée.' }
     Write-Host "      Version $($release.tag_name)"
@@ -36,7 +36,7 @@ try {
     $zip = Join-Path $work 'driver.zip'
     for ($i = 1; $i -le 3; $i++) {
         try {
-            Invoke-WebRequest -Uri $asset.url -OutFile $zip -UseBasicParsing -Headers @{ 'Accept' = 'application/octet-stream'; 'User-Agent' = 'Driver-Installer' }
+            Invoke-WebRequest -Uri $asset.url -OutFile $zip -UseBasicParsing -UserAgent 'Driver-Installer' -Headers @{ 'Accept' = 'application/octet-stream' }
             break
         } catch {
             if ($i -eq 3) { throw }
@@ -58,7 +58,7 @@ try {
     Write-Host ''
     Write-Host "  Driver $($release.tag_name) est installé. Un raccourci « Driver » est sur le Bureau." -ForegroundColor Green
     $main = Join-Path $env:ProgramFiles 'DriverUpdater\DriverUpdater.ps1'
-    Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$main`"")
+    if (-not $env:CI) { Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$main`"") }
 } catch {
     Write-Host ''
     Write-Host "  Erreur : $($_.Exception.Message)" -ForegroundColor Red
@@ -66,4 +66,5 @@ try {
     Remove-Item -Path $work -Recurse -Force -ErrorAction SilentlyContinue
 }
 Write-Host ''
-Read-Host '  Appuie sur Entrée pour fermer'
+if ($env:CI) { if ($Error.Count -and -not (Test-Path (Join-Path $env:ProgramFiles 'DriverUpdater\DriverUpdater.ps1'))) { exit 1 } }
+else { Read-Host '  Appuie sur Entrée pour fermer' }

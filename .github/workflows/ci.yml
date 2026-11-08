@@ -76,8 +76,47 @@ jobs:
           foreach ($t in $r.Failed) { Write-Host "::error::$($t.ExpandedPath) : $($t.ErrorRecord.Exception.Message)" }
           if ($r.FailedCount -gt 0) { exit 1 }
 
-  release:
+  # Essai complet sur un vrai Windows, avec le réseau : installateur en un clic,
+  # puis mise à jour automatique de Driver telle que l'application la fait.
+  installation:
     needs: tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Installateur en un clic (Installer-Driver.cmd)
+        shell: cmd
+        run: Installer-Driver.cmd
+
+      - name: Verification de l'installation
+        shell: powershell
+        run: |
+          $main = Join-Path $env:ProgramFiles 'DriverUpdater\DriverUpdater.ps1'
+          if (-not (Test-Path $main)) { Write-Host "::error::DriverUpdater.ps1 absent de Program Files"; exit 1 }
+          if (-not (Get-ScheduledTask -TaskName 'DriverUpdater' -ErrorAction SilentlyContinue)) { Write-Host "::error::Tache planifiee absente"; exit 1 }
+          Write-Host "Installation OK : $main"
+
+      - name: Mise a jour automatique (API GitHub, telechargement, Install.ps1)
+        shell: powershell
+        run: |
+          try {
+            $script:AppRoot = (Get-Location).Path
+            . .\src\Loader.ps1
+            Initialize-AppFolder
+            $r = Get-LatestAppRelease
+            if (-not $r.Version -or -not $r.AssetUrl) { throw "Reponse GitHub incomplete" }
+            Write-Host "Derniere version publiee : $($r.Version)"
+            $res = Install-AppUpdate -AssetUrl $r.AssetUrl -Version $r.Version -AssetWebUrl $r.AssetWebUrl
+            if (-not $res.Success) { throw "Install-AppUpdate : $($res.Message)" }
+            Write-Host "Mise a jour automatique OK : $($res.Message)"
+          } catch {
+            Write-Host "::error::$($_.Exception.Message)"
+            Get-ChildItem "$env:ProgramData\DriverUpdater\logs" -Filter *.log | ForEach-Object { Get-Content $_.FullName -Tail 30 }
+            exit 1
+          }
+
+  release:
+    needs: [tests, installation]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
