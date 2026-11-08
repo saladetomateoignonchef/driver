@@ -19,8 +19,24 @@
 param([switch]$Startup)
 
 $script:AppRoot = $PSScriptRoot
-. (Join-Path $PSScriptRoot 'src\Loader.ps1')
-. (Join-Path $PSScriptRoot 'src\Gui.ps1')
+
+# --- Chargement des modules : si des fichiers manquent (installation abîmée), on le dit clairement ---
+try {
+    $required = @('src\Loader.ps1', 'src\Gui.ps1', 'src\MainWindow.xaml', 'src\lang\fr.json')
+    $missing  = @($required | Where-Object { -not (Test-Path (Join-Path $PSScriptRoot $_)) })
+    if ($missing.Count) { throw "Fichiers manquants : $($missing -join ', ')" }
+    . (Join-Path $PSScriptRoot 'src\Loader.ps1')
+    . (Join-Path $PSScriptRoot 'src\Gui.ps1')
+} catch {
+    Add-Type -AssemblyName System.Windows.Forms
+    [void][System.Windows.Forms.MessageBox]::Show(
+        "Driver ne peut pas démarrer : son installation est incomplète ou abîmée.`r`n`r`n$($_.Exception.Message)`r`n`r`n" +
+        "Pour réparer : télécharge Installer-Driver.cmd sur https://github.com/saladetomateoignonchef/driver/releases/latest et double-clique dessus. " +
+        "Tes réglages et sauvegardes sont conservés.`r`n`r`n" +
+        "Driver cannot start: its installation is incomplete. Run Installer-Driver.cmd from the GitHub releases page to repair it.",
+        'Driver', 'OK', 'Error')
+    exit 1
+}
 
 # --- Élévation des droits : installer un pilote nécessite d'être administrateur ---
 if (-not (Test-IsAdmin)) {
