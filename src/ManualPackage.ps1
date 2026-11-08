@@ -22,6 +22,12 @@ function Expand-DriverPackage {
         $dest = Join-Path $script:DownloadDir ('manuel\{0}-{1:yyyyMMdd-HHmmss}' -f $name, (Get-Date))
         Write-Log "Paquet manuel : extraction de $Path vers $dest"
         Expand-Archive -Path $Path -DestinationPath $dest -Force
+        # Certains constructeurs mettent un ZIP dans le ZIP : on les extrait aussi (1 niveau)
+        foreach ($inner in @(Get-ChildItem -Path $dest -Recurse -File -Filter '*.zip')) {
+            $innerDest = Join-Path $inner.DirectoryName $inner.BaseName
+            Write-Log "Paquet manuel : extraction du ZIP interne $($inner.Name)"
+            Expand-Archive -Path $inner.FullName -DestinationPath $innerDest -Force
+        }
         Get-ChildItem -Path $dest -Recurse -File | Unblock-File
         return $dest
     }
@@ -29,6 +35,42 @@ function Expand-DriverPackage {
     if ([IO.Path]::GetExtension($Path) -eq '.exe') { return (Split-Path $Path -Parent) }
 
     throw "Format non pris en charge : $Path (glisse un fichier .zip, un dossier ou un .exe)"
+}
+
+function Read-InfText {
+    <#
+        Lit un .inf quel que soit son encodage. Beaucoup de .inf sont en UTF-16
+        (2 octets par caractère), parfois SANS marqueur (BOM) : lus comme du texte
+        classique, "VEN_10EC" devient "V.E.N._.1.0.E.C" et plus rien ne correspond.
+    #>
+    param([string]$Path)
+    $bytes = [IO.File]::ReadAllBytes($Path)
+    if ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) {
+        return [Text.Encoding]::Unicode.GetString($bytes, 2, $bytes.Length - 2)
+    }
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+        return [Text.Encoding]::UTF8.GetString($bytes, 3, $bytes.Length - 3)
+    }
+    $sample = [Math]::Min($bytes.Length, 512); $zeros = 0
+    for ($i = 1; $i -lt $sample; $i += 2) { if ($bytes[$i] -eq 0) { $zeros++ } }
+    if ($sample -gt 0 -and $zeros -gt ($sample / 4)) { return [Text.Encoding]::Unicode.GetString($bytes) }
+    return [Text.Encoding]::Default.GetString($bytes)
+}
+
+function Get-InfSummary {
+    <# Classe, version et identifiants matériels visés par un .inf (pour le diagnostic). #>
+    param([string]$Path, [string]$Text)
+    $class = $null
+    if ($Text -match '(?m)^\s*Class\s*=\s*([^\s;]+)') { $class = $Matches[1] }
+    $ver = Get-InfDriverVersion -InfText $Text
+    $ids = @([regex]::Matches($Text, '(?i)(?:VEN|VID)_[0-9A-F]{4}&(?:DEV|PID)_[0-9A-F]{4}') |
+        ForEach-Object { $_.Value.ToUpper() } | Sort-Object -Unique)
+    [pscustomobject]@{
+        InfName = Split-Path $Path -Leaf
+        Class   = $class
+        Version = if ($ver) { $ver.Version } else { '?' }
+        Ids     = $ids
+    }
 }
 
 function Get-InfDriverVersion {
@@ -54,7 +96,7 @@ function Find-PackageDriver {
     $hwIds = @($hwIds | Sort-Object Id -Unique)
 
     foreach ($inf in Get-ChildItem -Path $Folder -Recurse -Filter '*.inf' -File) {
-        $text = Get-Content -Path $inf.FullName -Raw -ErrorAction SilentlyContinue
+        $text = Read-InfText -Path $inf.FullName
         if (-not $text) { continue }
 
         $matched = @($hwIds | Where-Object { $text -match [regex]::Escape($_.Id) })
@@ -96,8 +138,23 @@ function Get-DriverPackageAnalysis {
     <# Analyse complète d'un ZIP / dossier / exe déposé dans la fenêtre. #>
     param([Parameter(Mandatory)][string]$Path)
 
-    $folder  = Expand-DriverPackage -Path $Path
-    $drivers = @(Find-PackageDriver -Folder $folder)
+    $folder    = Expand-DriverPackage -Path $Path
+    $inventory = @(Get-DeviceInventory)
+    $drivers   = @(Find-PackageDriver -Folder $folder -Inventory $inventory)
+
+    # --- Diagnostic : ce que contient le paquet et ce qu'il vise ---
+    $files = @(Get-ChildItem -Path $folder -Recurse -File)
+    $infs  = @($files | Where-Object { $_.Extension -eq '.inf' })
+    $exes  = @($files | Where-Object { $_.Extension -eq '.exe' })
+    $infSummary = @($infs | ForEach-Object { Get-InfSummary -Path $_.FullName -Text (Read-InfText -Path $_.FullName) })
+
+    # Périphériques du PC du même type que ceux visés par le paquet (ex. MEDIA = audio)
+    $classes   = @($infSummary | ForEach-Object { $_.Class } | Where-Object { $_ } | Sort-Object -Unique)
+    $pcDevices = @($inventory | Where-Object { $classes -contains $_.Class -and $_.HardwareId -match '(?:VEN|VID)_[0-9A-Fa-f]{4}&(?:DEV|PID)_[0-9A-Fa-f]{4}' } |
+        ForEach-Object {
+            [void]($_.HardwareId -match '((?:VEN|VID)_[0-9A-Fa-f]{4}&(?:DEV|PID)_[0-9A-Fa-f]{4})')
+            '{0} ({1}, version {2})' -f $_.Name, $Matches[1].ToUpper(), $_.DriverVersion
+        } | Sort-Object -Unique)
     $setup   = if ([IO.Path]::GetExtension($Path) -eq '.exe') { $Path } else { Find-PackageSetup -Folder $folder }
 
     $signer = $null; $signed = $false
@@ -107,10 +164,19 @@ function Get-DriverPackageAnalysis {
         if ($sig.SignerCertificate) { $signer = $sig.SignerCertificate.GetNameInfo('SimpleName', $false) }
     }
 
-    Write-Log ("Paquet manuel : {0} pilote(s) .inf correspondant(s), installateur : {1} (signé : {2}, {3})" -f $drivers.Count, $setup, $signed, $signer)
+    Write-Log ("Paquet manuel : {0} fichier(s), {1} .inf, {2} .exe ; {3} .inf correspondant(s) au PC ; installateur : {4} (signé : {5}, {6})" -f `
+        $files.Count, $infs.Count, $exes.Count, $drivers.Count, $setup, $signed, $signer)
+    foreach ($i in $infSummary) {
+        Write-Log ("  {0} : classe {1}, version {2}, vise {3}" -f $i.InfName, $i.Class, $i.Version, (($i.Ids | Select-Object -First 8) -join ' '))
+    }
     [pscustomobject]@{
         Source      = $Path
         Folder      = $folder
+        FileCount   = $files.Count
+        InfCount    = $infs.Count
+        ExeCount    = $exes.Count
+        InfSummary  = $infSummary
+        PcDevices   = $pcDevices
         Drivers     = $drivers
         Setup       = $setup
         SetupSigned = $signed
