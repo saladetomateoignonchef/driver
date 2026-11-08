@@ -81,8 +81,34 @@ jobs:
   installation:
     needs: tests
     runs-on: windows-latest
+    # Informatif : dépend de la disponibilité de GitHub vue depuis les machines de test
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v5
+
+      - name: Diagnostic reseau GitHub
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+          $tests = @(
+            @{ Name = 'API sans authentification'; Url = 'https://api.github.com/repos/${{ github.repository }}/releases/latest'; Auth = $false }
+            @{ Name = 'API avec jeton';            Url = 'https://api.github.com/repos/${{ github.repository }}/releases/latest'; Auth = $true }
+            @{ Name = 'Page releases/latest';      Url = 'https://github.com/${{ github.repository }}/releases/latest'; Auth = $false }
+            @{ Name = 'Archive codeload';          Url = 'https://codeload.github.com/${{ github.repository }}/zip/refs/heads/main'; Auth = $false }
+          )
+          foreach ($t in $tests) {
+            try {
+              $req = [System.Net.HttpWebRequest]::Create($t.Url)
+              $req.UserAgent = 'Driver-CI'; $req.AllowAutoRedirect = $false; $req.Timeout = 20000
+              if ($t.Auth) { $req.Headers['Authorization'] = "Bearer $env:GH_TOKEN" }
+              $resp = $req.GetResponse(); $code = [int]$resp.StatusCode; $resp.Close()
+            } catch [System.Net.WebException] {
+              $code = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { $_.Exception.Status }
+            }
+            Write-Host ("{0,-28} -> {1}" -f $t.Name, $code)
+          }
 
       - name: Installateur en un clic (Installer-Driver.cmd)
         shell: cmd
@@ -116,7 +142,7 @@ jobs:
           }
 
   release:
-    needs: [tests, installation]
+    needs: tests
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
