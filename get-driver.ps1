@@ -1,12 +1,12 @@
-﻿# =============================================================================
-#  get-driver.ps1 - Installation (ou réparation) de Driver en une commande,
+# =============================================================================
+#  get-driver.ps1 - Installation (ou reparation) de Driver en une commande,
 #  sans navigateur. Dans PowerShell ouvert EN ADMINISTRATEUR :
 #
 #     irm https://raw.githubusercontent.com/saladetomateoignonchef/driver/main/get-driver.ps1 | iex
 #
-#  Télécharge la dernière version publiée sur GitHub (avec plan B si l'API
-#  GitHub ne répond pas), puis lance Install.ps1. Les réglages et sauvegardes
-#  (C:\ProgramData\DriverUpdater) sont conservés.
+#  Telecharge la derniere version publiee sur GitHub (avec plan B si l'API
+#  GitHub ne repond pas), puis lance Install.ps1. Les reglages et sauvegardes
+#  (C:\ProgramData\DriverUpdater) sont conserves.
 # =============================================================================
 & {
     $ErrorActionPreference = 'Stop'
@@ -17,7 +17,7 @@
     if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
         Write-Host ''
         Write-Host '  Il faut ouvrir PowerShell EN ADMINISTRATEUR :' -ForegroundColor Yellow
-        Write-Host '  menu Démarrer > tape "powershell" > clic droit sur Windows PowerShell > Exécuter en tant qu''administrateur.'
+        Write-Host '  menu Demarrer > tape "powershell" > clic droit sur Windows PowerShell > Executer en tant qu''administrateur.'
         Write-Host '  Puis recolle la commande.'
         return
     }
@@ -29,7 +29,7 @@
         Write-Host ''
         Write-Host '  Driver - installation' -ForegroundColor Cyan
         Write-Host '  ---------------------'
-        Write-Host '  1/4 Recherche de la dernière version sur GitHub...'
+        Write-Host '  1/4 Recherche de la derniere version sur GitHub...'
         $tag = $null; $sources = @()
         for ($i = 1; $i -le 2 -and -not $tag; $i++) {
             try {
@@ -50,14 +50,14 @@
             $req = [System.Net.HttpWebRequest]::Create("https://github.com/$repo/releases/latest")
             $req.Method = 'HEAD'; $req.AllowAutoRedirect = $false; $req.UserAgent = $ua
             $resp = $req.GetResponse(); $location = [string]$resp.Headers['Location']; $resp.Close()
-            if ($location -notmatch '/releases/tag/([^/?#]+)$') { throw 'GitHub est injoignable pour le moment, réessaie plus tard.' }
+            if ($location -notmatch '/releases/tag/([^/?#]+)$') { throw 'GitHub est injoignable pour le moment, reessaie plus tard.' }
             $tag = $Matches[1]
             $sources += @{ Url = "https://github.com/$repo/releases/download/$tag/driver-$tag.zip" }
         }
         $sources += @{ Url = "https://codeload.github.com/$repo/zip/refs/tags/$tag" }
         Write-Host "      Version $tag"
 
-        Write-Host '  2/4 Téléchargement...'
+        Write-Host '  2/4 Telechargement...'
         New-Item -ItemType Directory -Path $work -Force | Out-Null
         $zip = Join-Path $work 'driver.zip'
         $ok = $false
@@ -69,7 +69,7 @@
                 $ok = $true; break
             } catch { Write-Host '      Source indisponible, essai de la suivante...' -ForegroundColor Yellow }
         }
-        if (-not $ok) { throw 'Téléchargement impossible : GitHub ne répond pas, réessaie plus tard.' }
+        if (-not $ok) { throw 'Telechargement impossible : GitHub ne repond pas, reessaie plus tard.' }
 
         Write-Host '  3/4 Extraction...'
         Expand-Archive -Path $zip -DestinationPath (Join-Path $work 'files') -Force
@@ -79,10 +79,10 @@
 
         Write-Host '  4/4 Installation...'
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer.FullName -Silent
-        if ($LASTEXITCODE -ne 0) { throw "Install.ps1 a échoué (code $LASTEXITCODE)." }
+        if ($LASTEXITCODE -ne 0) { throw "Install.ps1 a echoue (code $LASTEXITCODE)." }
 
         Write-Host ''
-        Write-Host "  Driver $tag est installé. Un raccourci « Driver » est sur le Bureau." -ForegroundColor Green
+        Write-Host "  Driver $tag est installe. Un raccourci "Driver" est sur le Bureau." -ForegroundColor Green
         if (-not $env:CI) {
             $main = Join-Path $env:ProgramFiles 'DriverUpdater\DriverUpdater.ps1'
             Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$main`"")
