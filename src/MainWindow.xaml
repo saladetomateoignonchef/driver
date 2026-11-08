@@ -244,9 +244,16 @@
     <Border Background="#12263A">
       <DockPanel Margin="14,20,14,16" LastChildFill="False">
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,0,0,22">
-          <Border x:Name="LogoBox" Width="30" Height="30" CornerRadius="8" Background="#2DD4BF">
-            <Path Data="M8,15 L13,20 L22,10" Stroke="#0B1F33" StrokeThickness="2.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="None"/>
-          </Border>
+          <!-- Logo "D" (même dessin que src/driver.ico) -->
+          <Viewbox x:Name="LogoBox" Width="32" Height="32">
+            <Canvas Width="256" Height="256">
+              <Rectangle Canvas.Left="8" Canvas.Top="8" Width="240" Height="240" RadiusX="56" RadiusY="56" Fill="#0B1A29" Stroke="#2DD4BF" StrokeThickness="6"/>
+              <Path Data="M78,62 L128,62 A66,66 0 0 1 128,194 L78,194 Z" Stroke="#2DD4BF" StrokeThickness="24" StrokeLineJoin="Round"/>
+              <Path Data="M78,128 L128,128" Stroke="White" StrokeThickness="10" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+              <Ellipse Canvas.Left="66" Canvas.Top="116" Width="24" Height="24" Fill="White"/>
+              <Ellipse Canvas.Left="128" Canvas.Top="116" Width="24" Height="24" Fill="White"/>
+            </Canvas>
+          </Viewbox>
           <TextBlock Text="Driver" Foreground="White" FontSize="20" FontWeight="Bold" Margin="11,0,0,0" VerticalAlignment="Center"/>
         </StackPanel>
 

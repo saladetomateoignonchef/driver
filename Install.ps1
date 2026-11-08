@@ -56,6 +56,7 @@ $lnk  = $wsh.CreateShortcut((Join-Path $desktop 'Driver.lnk'))
 $lnk.TargetPath  = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 $lnk.Arguments   = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$mainScript`""
 $lnk.Description = 'Mise à jour des pilotes'
+$lnk.IconLocation = (Join-Path $target 'src\driver.ico') + ',0'
 $lnk.Save()
 
 Write-Host '5/5 Activation de la protection système (points de restauration) sur C:' -ForegroundColor Cyan
