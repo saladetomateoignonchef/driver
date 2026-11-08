@@ -1,0 +1,6 @@
+﻿# Charge tous les modules du projet (à dot-sourcer : . .\src\Loader.ps1)
+. (Join-Path $PSScriptRoot 'Common.ps1')
+. (Join-Path $PSScriptRoot 'Inventory.ps1')
+. (Join-Path $PSScriptRoot 'Providers\Nvidia.ps1')
+. (Join-Path $PSScriptRoot 'Providers\WindowsUpdate.ps1')
+. (Join-Path $PSScriptRoot 'Core.ps1')
