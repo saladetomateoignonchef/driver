@@ -5,10 +5,14 @@
         Width="480" SizeToContent="Height" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
         FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" UseLayoutRounding="True">
-  <Border Margin="18" CornerRadius="14" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1">
+  <Grid Margin="18">
+  <!-- Ombre sur un cadre à part : un effet appliqué au cadre du texte rendrait le texte flou -->
+  <Border CornerRadius="14" Background="{DynamicResource SurfaceBrush}">
     <Border.Effect>
       <DropShadowEffect BlurRadius="24" ShadowDepth="4" Opacity="0.28" Color="#0B1F33"/>
     </Border.Effect>
+  </Border>
+  <Border CornerRadius="14" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1">
     <DockPanel Margin="24,22,24,20">
       <!-- En-tête : pastille + titre -->
       <DockPanel DockPanel.Dock="Top" x:Name="DlgHeader" Background="Transparent">
@@ -30,4 +34,5 @@
       </ScrollViewer>
     </DockPanel>
   </Border>
+  </Grid>
 </Window>

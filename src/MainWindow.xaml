@@ -143,7 +143,7 @@
                            VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,7,0"/>
                 <Grid x:Name="knob" Width="22" Height="22" HorizontalAlignment="Left" Margin="3,0,0,0">
                   <Grid.RenderTransform><TranslateTransform X="0"/></Grid.RenderTransform>
-                  <Grid.Effect><DropShadowEffect BlurRadius="5" ShadowDepth="1" Opacity="0.35" Color="#0B1F33"/></Grid.Effect>
+                  <Ellipse Fill="#40000000" Margin="0,1.5,0,-1.5"/>
                   <Ellipse x:Name="knobOff" Fill="{DynamicResource ToggleKnobOffBrush}"/>
                   <Ellipse x:Name="knobOn" Fill="{DynamicResource ToggleKnobOnBrush}" Opacity="0"/>
                 </Grid>
@@ -179,7 +179,7 @@
                 </Border>
                 <Grid x:Name="knob" Width="34" Height="34" HorizontalAlignment="Left" Margin="4,0,0,0">
                   <Grid.RenderTransform><TranslateTransform X="0"/></Grid.RenderTransform>
-                  <Grid.Effect><DropShadowEffect BlurRadius="7" ShadowDepth="2" Opacity="0.35" Color="#000000"/></Grid.Effect>
+                  <Ellipse Fill="#33000000" Margin="-0.5,2,-0.5,-2"/>
                   <Ellipse x:Name="knobLight">
                     <Ellipse.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FFFFFF" Offset="0"/><GradientStop Color="#F3F4F6" Offset="1"/></LinearGradientBrush></Ellipse.Fill>
                   </Ellipse>
@@ -187,10 +187,10 @@
                     <Ellipse.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#4B5563" Offset="0"/><GradientStop Color="#374151" Offset="1"/></LinearGradientBrush></Ellipse.Fill>
                   </Ellipse>
                 </Grid>
-                <Path x:Name="sunBright" Data="M16.5,12 A4.5,4.5 0 1 1 7.5,12 A4.5,4.5 0 1 1 16.5,12 Z M12,2.5 L12,4.7 M12,19.3 L12,21.5 M2.5,12 L4.7,12 M19.3,12 L21.5,12 M5.3,5.3 L6.8,6.8 M17.2,17.2 L18.7,18.7 M5.3,18.7 L6.8,17.2 M17.2,6.8 L18.7,5.3" Stroke="#F59E0B" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="22" Height="22" Stretch="Uniform" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0,0,0" Opacity="1" IsHitTestVisible="False"/>
-                <Path x:Name="sunDim" Data="M16.5,12 A4.5,4.5 0 1 1 7.5,12 A4.5,4.5 0 1 1 16.5,12 Z M12,2.5 L12,4.7 M12,19.3 L12,21.5 M2.5,12 L4.7,12 M19.3,12 L21.5,12 M5.3,5.3 L6.8,6.8 M17.2,17.2 L18.7,18.7 M5.3,18.7 L6.8,17.2 M17.2,6.8 L18.7,5.3" Stroke="#6B7280" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="22" Height="22" Stretch="Uniform" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0,0,0" Opacity="0" IsHitTestVisible="False"/>
-                <Path x:Name="moonDim" Data="M20,14.5 A8,8 0 1 1 9.5,4 A6.3,6.3 0 0 0 20,14.5 Z" Stroke="#9CA3AF" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="22" Height="22" Stretch="Uniform" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" Opacity="1" IsHitTestVisible="False"/>
-                <Path x:Name="moonBright" Data="M20,14.5 A8,8 0 1 1 9.5,4 A6.3,6.3 0 0 0 20,14.5 Z" Stroke="#F3F4F6" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="22" Height="22" Stretch="Uniform" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" Opacity="0" IsHitTestVisible="False"/>
+                <Path x:Name="sunBright" Data="M16.5,12 A4.5,4.5 0 1 1 7.5,12 A4.5,4.5 0 1 1 16.5,12 Z M12,2.5 L12,4.7 M12,19.3 L12,21.5 M2.5,12 L4.7,12 M19.3,12 L21.5,12 M5.3,5.3 L6.8,6.8 M17.2,17.2 L18.7,18.7 M5.3,18.7 L6.8,17.2 M17.2,6.8 L18.7,5.3" Stroke="#F59E0B" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="24" Height="24" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="9,0,0,0" Opacity="1" IsHitTestVisible="False"/>
+                <Path x:Name="sunDim" Data="M16.5,12 A4.5,4.5 0 1 1 7.5,12 A4.5,4.5 0 1 1 16.5,12 Z M12,2.5 L12,4.7 M12,19.3 L12,21.5 M2.5,12 L4.7,12 M19.3,12 L21.5,12 M5.3,5.3 L6.8,6.8 M17.2,17.2 L18.7,18.7 M5.3,18.7 L6.8,17.2 M17.2,6.8 L18.7,5.3" Stroke="#6B7280" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="24" Height="24" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="9,0,0,0" Opacity="0" IsHitTestVisible="False"/>
+                <Path x:Name="moonDim" Data="M20,14.5 A8,8 0 1 1 9.5,4 A6.3,6.3 0 0 0 20,14.5 Z" Stroke="#9CA3AF" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="24" Height="24" Stretch="None" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,9,0" Opacity="1" IsHitTestVisible="False"/>
+                <Path x:Name="moonBright" Data="M20,14.5 A8,8 0 1 1 9.5,4 A6.3,6.3 0 0 0 20,14.5 Z" Stroke="#F3F4F6" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="24" Height="24" Stretch="None" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,9,0" Opacity="0" IsHitTestVisible="False"/>
               </Grid>
               <ContentPresenter Margin="14,0,0,0" VerticalAlignment="Center"/>
             </StackPanel>
