@@ -82,7 +82,7 @@
         if ($LASTEXITCODE -ne 0) { throw "Install.ps1 a echoue (code $LASTEXITCODE)." }
 
         Write-Host ''
-        Write-Host "  Driver $tag est installe. Un raccourci "Driver" est sur le Bureau." -ForegroundColor Green
+        Write-Host "  Driver $tag est installe. Un raccourci 'Driver' est sur le Bureau." -ForegroundColor Green
         if (-not $env:CI) {
             $main = Join-Path $env:ProgramFiles 'DriverUpdater\DriverUpdater.ps1'
             Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$main`"")
