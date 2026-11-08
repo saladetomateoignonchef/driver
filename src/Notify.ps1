@@ -17,7 +17,9 @@ function Show-UpdateNotification {
     $script:NotifyOpen = $false
     $icon = New-Object System.Windows.Forms.NotifyIcon
     $iconFile = Join-Path $script:AppRoot 'src\driver.ico'
-    $icon.Icon = if (Test-Path $iconFile) { New-Object System.Drawing.Icon($iconFile) } else { [System.Drawing.SystemIcons]::Information }
+    $icon.Icon = if (Test-Path $iconFile) {
+        New-Object System.Drawing.Icon((New-Object System.IO.MemoryStream(, [IO.File]::ReadAllBytes($iconFile))))   # sans verrouiller le fichier
+    } else { [System.Drawing.SystemIcons]::Information }
     $icon.Text = 'Driver : ' + $(if ($Title.Length -gt 50) { $Title.Substring(0, 50) } else { $Title })
 
     $menu = New-Object System.Windows.Forms.ContextMenuStrip

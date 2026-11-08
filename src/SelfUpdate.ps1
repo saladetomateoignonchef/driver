@@ -122,13 +122,24 @@ function Install-AppUpdate {
     if (-not $installer) { throw (T 'MsgNoInstaller') }
 
     Write-Log "Mise à jour de Driver : lancement de $($installer.FullName)"
-    $p = Start-Process -FilePath 'powershell.exe' -Wait -PassThru -WindowStyle Hidden -ArgumentList @(
+    $outFile = Join-Path $work 'install-output.txt'
+    $errFile = Join-Path $work 'install-errors.txt'
+    $p = Start-Process -FilePath 'powershell.exe' -Wait -PassThru -WindowStyle Hidden `
+        -RedirectStandardOutput $outFile -RedirectStandardError $errFile -ArgumentList @(
         '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$($installer.FullName)`"", '-Silent')
     Write-Log "Mise à jour de Driver : Install.ps1 terminé (code $($p.ExitCode))"
+    $details = ''
+    if ($p.ExitCode -ne 0) {
+        # Sortie d'Install.ps1 dans le journal + les dernières lignes d'erreur dans le message
+        $out = (Get-Content $outFile -ErrorAction SilentlyContinue) -join "`n"
+        $errLines = @(Get-Content $errFile -ErrorAction SilentlyContinue | Where-Object { $_.Trim() })
+        Write-Log "Mise à jour de Driver : sortie d'Install.ps1 :`n$out`n$($errLines -join "`n")" 'ERREUR'
+        $details = ($errLines | Select-Object -First 6) -join "`n"
+    }
 
     [pscustomobject]@{
         Device = "Driver $Version"; Success = ($p.ExitCode -eq 0); RebootRequired = $false
-        Message = if ($p.ExitCode -eq 0) { T 'MsgAppUpdated' $Version } else { T 'MsgAppUpdateFail' $p.ExitCode }
+        Message = if ($p.ExitCode -eq 0) { T 'MsgAppUpdated' $Version } else { (T 'MsgAppUpdateFail' $p.ExitCode) + "`n$details" }
         SelfUpdate = $true
     }
 }

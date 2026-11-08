@@ -25,13 +25,50 @@ $target   = Join-Path $env:ProgramFiles 'DriverUpdater'
 $taskName = 'DriverUpdater'
 $user     = "$env:USERDOMAIN\$env:USERNAME"
 
+function Copy-AppFile {
+    <#
+        Copie fichier par fichier, sans supprimer le dossier d'abord : pendant une mise à jour
+        automatique, Driver est ouvert et Windows peut garder certains fichiers verrouillés
+        (ex. l'icône). Un fichier verrouillé identique à la nouvelle version est ignoré ;
+        sinon on réessaie 3 fois avant de signaler l'erreur.
+    #>
+    param([string]$Source, [string]$Destination)
+    $dir = Split-Path $Destination -Parent
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    for ($i = 1; $i -le 3; $i++) {
+        try { Copy-Item -Path $Source -Destination $Destination -Force -ErrorAction Stop; return $null }
+        catch {
+            if ((Test-Path $Destination) -and ((Get-FileHash $Source).Hash -eq (Get-FileHash $Destination).Hash)) { return $null }
+            if ($i -lt 3) { Start-Sleep -Seconds 1 } else { return "$Destination : $($_.Exception.Message)" }
+        }
+    }
+}
+
 Write-Host "1/5 Copie des fichiers dans $target" -ForegroundColor Cyan
 New-Item -ItemType Directory -Path $target -Force | Out-Null
-if (Test-Path (Join-Path $target 'src')) { Remove-Item (Join-Path $target 'src') -Recurse -Force }
-Copy-Item -Path (Join-Path $PSScriptRoot 'DriverUpdater.ps1') -Destination $target -Force
-Copy-Item -Path (Join-Path $PSScriptRoot 'Uninstall.ps1') -Destination $target -Force
-Copy-Item -Path (Join-Path $PSScriptRoot 'src') -Destination $target -Recurse -Force
-Get-ChildItem -Path $target -Recurse -File | Unblock-File   # retire le marquage "téléchargé depuis Internet"
+$copyErrors = New-Object System.Collections.Generic.List[string]
+$sources = @(
+    Get-Item (Join-Path $PSScriptRoot 'DriverUpdater.ps1'), (Join-Path $PSScriptRoot 'Uninstall.ps1')
+    Get-ChildItem -Path (Join-Path $PSScriptRoot 'src') -Recurse -File
+)
+$expected = @{}
+foreach ($file in $sources) {
+    $relative = $file.FullName.Substring($PSScriptRoot.TrimEnd('\').Length + 1)
+    $dest = Join-Path $target $relative
+    $expected[$dest.ToLower()] = $true
+    $err = Copy-AppFile -Source $file.FullName -Destination $dest
+    if ($err) { $copyErrors.Add($err) }
+}
+# Fichiers d'anciennes versions devenus inutiles (au mieux : un fichier verrouillé reste en place)
+Get-ChildItem -Path (Join-Path $target 'src') -Recurse -File -ErrorAction SilentlyContinue |
+    Where-Object { -not $expected[$_.FullName.ToLower()] } |
+    Remove-Item -Force -ErrorAction SilentlyContinue
+if ($copyErrors.Count) {
+    $msg = "Copie impossible de $($copyErrors.Count) fichier(s) :`n" + ($copyErrors -join "`n")
+    try { Write-Log "Installation : $msg" 'ERREUR' } catch { }
+    throw $msg
+}
+Get-ChildItem -Path $target -Recurse -File | Unblock-File   # retire le marquage "téléchargé depuis Internet\"
 
 Write-Host '2/5 Création du dossier de données (journaux)' -ForegroundColor Cyan
 Initialize-AppFolder

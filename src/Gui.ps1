@@ -214,7 +214,11 @@ function Show-MainWindow {
     }
     $iconFile = Join-Path $PSScriptRoot 'driver.ico'
     if (Test-Path $iconFile) {
-        try { $window.Icon = [System.Windows.Media.Imaging.BitmapFrame]::Create((New-Object System.Uri($iconFile))) } catch { }
+        # Lecture en mémoire : le fichier n'est pas verrouillé (il doit pouvoir être remplacé par une mise à jour)
+        try {
+            $stream = New-Object System.IO.MemoryStream(, [IO.File]::ReadAllBytes($iconFile))
+            $window.Icon = [System.Windows.Media.Imaging.BitmapFrame]::Create($stream, 'None', 'OnLoad')
+        } catch { }
     }
 
     $script:Settings     = Get-AppSettings
