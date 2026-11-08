@@ -3,7 +3,21 @@
 Application PowerShell avec interface graphique qui détecte les pilotes obsolètes
 de mon PC et me propose de les mettre à jour. **Rien n'est installé sans ma validation.**
 
-![PowerShell 5.1](https://img.shields.io/badge/PowerShell-5.1-blue) ![Windows 11](https://img.shields.io/badge/Windows-11-0078D6)
+![PowerShell 5.1](https://img.shields.io/badge/PowerShell-5.1-blue) ![Windows 11](https://img.shields.io/badge/Windows-11-0078D6) [![Tests](https://github.com/saladetomateoignonchef/driver/actions/workflows/ci.yml/badge.svg)](https://github.com/saladetomateoignonchef/driver/actions/workflows/ci.yml)
+
+## Fonctionnalités
+
+| | |
+|---|---|
+| **Tableau de bord** | Une carte par composant (carte graphique, audio, réseau, chipset, Bluetooth, stockage) avec son état |
+| **Mises à jour** | NVIDIA (Game Ready ou Studio) + Windows Update, installation après validation, bouton « Ignorer » |
+| **Paquets manuels** | Glisser-déposer d'un ZIP constructeur : analyse des `.inf`, comparaison des versions, diagnostic clair |
+| **Sauvegardes** | Le pilote actuel est sauvegardé avant chaque installation ; retour arrière en un clic ; limite de 1, 2, 3 ou 5 versions par pilote |
+| **Historique** | Toutes les opérations, exportables en rapport HTML |
+| **Démarrage** | Vérification à chaque démarrage, une fois par jour ou par semaine, avec notification |
+| **Paramètres** | Fréquence, notification, Game Ready / Studio, thème clair / sombre, sauvegardes, mises à jour ignorées |
+| **Mise à jour de Driver** | Bandeau quand une nouvelle version est publiée sur GitHub, installation en un clic |
+| **Entretien** | Journaux et téléchargements de plus de 30 jours supprimés automatiquement |
 
 ## Fonctionnement
 
@@ -63,6 +77,10 @@ driver/
 │   ├── Gui.ps1                # remplissage de la fenêtre et réactions aux clics
 │   ├── DropTarget.ps1         # glisser-déposer en administrateur + barre de titre colorée
 │   ├── ManualPackage.ps1      # analyse et installation d'un ZIP de pilotes
+│   ├── Backup.ps1             # sauvegarde avant installation, limite, retour arrière
+│   ├── History.ps1            # historique + rapport HTML
+│   ├── SelfUpdate.ps1         # mise à jour de Driver depuis les Releases GitHub
+│   ├── Notify.ps1             # notification au démarrage
 │   ├── Loader.ps1             # charge tous les modules
 │   └── Providers/
 │       ├── Nvidia.ps1         # fournisseur NVIDIA
@@ -104,6 +122,13 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 `C:\ProgramData\DriverUpdater\logs\AAAA-MM-JJ.log` (bouton **Journaux** dans la fenêtre).
 
+## Publier une nouvelle version
+
+1. Changer `$script:AppVersion` dans `src/Common.ps1` (ex. `2.1.0`).
+2. Créer et pousser le tag correspondant : `git tag v2.1.0` puis `git push origin v2.1.0`.
+3. GitHub Actions teste le code sur Windows ; si tout passe, le ZIP est publié dans **Releases**
+   et les Driver installés proposent la mise à jour.
+
 ## Tests
 
 ```powershell
@@ -122,7 +147,9 @@ powershell.exe -ExecutionPolicy Bypass -File .\Uninstall.ps1
 - Les API NVIDIA utilisées ne sont pas documentées officiellement : NVIDIA peut les modifier.
   En cas de panne, Windows Update prend le relais pour la carte graphique.
 - AMD et Intel n'ont pas d'API publique simple : leurs pilotes passent par Windows Update.
-- Le BIOS et les firmwares ne sont pas gérés (trop risqué en automatique).
+- Le BIOS et les firmwares ne sont pas gérés (trop risqué en automatique) : un BIOS déposé dans la fenêtre est reconnu et refusé.
+- Le retour arrière n'est possible que pour les pilotes de constructeurs (`oemXX.inf`), pas pour ceux intégrés à Windows.
+- Les sauvegardes du pilote NVIDIA sont volumineuses (environ 1 Go chacune) : d'où la limite par pilote.
 - Utiliser **Windows PowerShell 5.1** (`powershell.exe`), pas PowerShell 7 : `Checkpoint-Computer`
   (points de restauration) n'existe que dans la 5.1.
 
