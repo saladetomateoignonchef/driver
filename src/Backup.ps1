@@ -33,7 +33,10 @@ function Get-HardwareIdVariant {
         for ($k = $noSubsys.Count; $k -ge 2; $k--) { $list.Add(($noSubsys[0..($k - 1)] -join '&')) }
     }
     if ($parts.Count -eq 1) { $list.Add($HardwareId) }
-    return @($list | Select-Object -Unique)
+    # Tri : le plus de critères d'abord ; à égalité, celui avec SUBSYS (spécifique à la carte) d'abord
+    return @($list | Select-Object -Unique | Sort-Object -Property `
+        @{ Expression = { ($_ -split '&').Count }; Descending = $true },
+        @{ Expression = { $_ -match 'SUBSYS_' }; Descending = $true })
 }
 
 function Backup-DeviceDriver {
