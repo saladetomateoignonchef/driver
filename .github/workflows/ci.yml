@@ -15,7 +15,7 @@ jobs:
   tests:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Syntaxe des scripts (Windows PowerShell 5.1)
         shell: powershell
@@ -42,16 +42,16 @@ jobs:
             . .\src\Gui.ps1
             [xml]$xaml = Get-Content .\src\MainWindow.xaml -Raw -Encoding UTF8
             $window = [System.Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
-            foreach ($node in $xaml.SelectNodes('//*[@*[local-name()="Name"]]')) {
+            foreach ($node in $xaml.SelectNodes('//*[@*[local-name()="Name"]][not(ancestor::*[local-name()="ControlTemplate"])]')) {
               $n = $node.GetAttribute('Name', 'http://schemas.microsoft.com/winfx/2006/xaml')
-              if ($n -and -not $window.FindName($n)) { throw "Élément introuvable : $n" }
+              if ($n -and -not $window.FindName($n)) { throw "Element introuvable dans la fenetre : $n" }
             }
             foreach ($k in @('Card', 'CardWarn', 'BtnSmall', 'BtnPrimary', 'BtnLink', 'Check')) { [void]$window.FindResource($k) }
             foreach ($kind in @('gpu', 'audio', 'effect', 'net', 'chipset', 'bt', 'storage', 'other')) { [void](New-IconBadge $kind) }
-            [void](New-Pill 'À jour' $false); [void](New-VersionText '610.88' '621.14'); [void](New-Text 'test' 12 'Muted')
+            [void](New-Pill 'A jour' $false); [void](New-VersionText '610.88' '621.14'); [void](New-Text 'test' 12 'Muted')
             [void](New-Columns @('Auto', '*', '80'))
             Initialize-NewDevApi
-            Write-Host "Interface chargée : $($window.Title)"
+            Write-Host "Interface chargee : $($window.Title)"
           } catch {
             Write-Host "::error::$($_.Exception.Message) $($_.InvocationInfo.PositionMessage)"
             exit 1
@@ -72,7 +72,7 @@ jobs:
         run: |
           . .\src\Common.ps1
           $tag = '${{ github.ref_name }}'.TrimStart('v')
-          if ($tag -ne $AppVersion) { Write-Host "::error::Le tag ($tag) ne correspond pas à AppVersion ($AppVersion)"; exit 1 }
+          if ($tag -ne $AppVersion) { Write-Host "::error::Le tag ($tag) ne correspond pas a AppVersion ($AppVersion)"; exit 1 }
 
   release:
     needs: tests
@@ -81,7 +81,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Création du ZIP
         run: |
           mkdir -p dist/driver

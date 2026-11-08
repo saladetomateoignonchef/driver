@@ -185,7 +185,8 @@ function Show-MainWindow {
     [xml]$xaml = Get-Content -Path (Join-Path $PSScriptRoot 'MainWindow.xaml') -Raw -Encoding UTF8
     $window = [System.Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
     $ui = @{}
-    foreach ($node in $xaml.SelectNodes('//*[@*[local-name()="Name"]]')) {
+    # éléments nommés de la fenêtre (pas ceux des modèles de boutons, qui ont leur propre espace de noms)
+    foreach ($node in $xaml.SelectNodes('//*[@*[local-name()="Name"]][not(ancestor::*[local-name()="ControlTemplate"])]')) {
         $name = $node.GetAttribute('Name', 'http://schemas.microsoft.com/winfx/2006/xaml')
         if ($name) { $ui[$name] = $window.FindName($name) }
     }
