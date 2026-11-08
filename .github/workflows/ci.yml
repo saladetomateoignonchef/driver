@@ -122,6 +122,18 @@ jobs:
           if (-not (Get-ScheduledTask -TaskName 'DriverUpdater' -ErrorAction SilentlyContinue)) { Write-Host "::error::Tache planifiee absente"; exit 1 }
           Write-Host "Installation OK : $main"
 
+      - name: Mise a jour pendant que Driver est ouvert (fichier verrouille)
+        shell: powershell
+        run: |
+          # Reproduit le cas reel : la fenetre de Driver garde driver.ico ouvert pendant la mise a jour
+          $ico  = Join-Path $env:ProgramFiles 'DriverUpdater\src\driver.ico'
+          $lock = [IO.File]::Open($ico, 'Open', 'Read', 'Read')
+          try {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1 -Silent
+            if ($LASTEXITCODE -ne 0) { Write-Host "::error::Install.ps1 echoue avec un fichier verrouille (code $LASTEXITCODE)"; exit 1 }
+            Write-Host 'Mise a jour avec fichier verrouille : OK'
+          } finally { $lock.Close() }
+
       - name: Mise a jour automatique (API GitHub, telechargement, Install.ps1)
         shell: powershell
         run: |
