@@ -3,7 +3,7 @@
 # =============================================================================
 
 $script:AppName      = 'DriverUpdater'
-$script:AppVersion   = '2.0.1'                              # doit correspondre au tag GitHub (v2.0.0)
+$script:AppVersion   = '2.0.2'                              # doit correspondre au tag GitHub (v2.0.0)
 $script:GitHubRepo   = 'saladetomateoignonchef/driver'
 $script:DataDir      = Join-Path $env:ProgramData 'DriverUpdater'
 $script:LogDir       = Join-Path $script:DataDir 'logs'
@@ -196,10 +196,33 @@ function Clear-TaskProgress {
 }
 
 function Invoke-FileDownload {
-    <# Téléchargement par blocs de 1 Mo, avec progression (%, Mo, Mo/s) pour la fenêtre. #>
-    param([Parameter(Mandatory)][string]$Url, [Parameter(Mandatory)][string]$OutFile, [string]$Label = 'fichier')
+    <#
+        Téléchargement par blocs de 1 Mo, avec progression (%, Mo, Mo/s) pour la fenêtre.
+        3 tentatives (attente de 3 puis 6 secondes) : les serveurs répondent parfois
+        « 504 Gateway Time-out » de façon passagère.
+    #>
+    param([Parameter(Mandatory)][string]$Url, [Parameter(Mandatory)][string]$OutFile,
+          [string]$Label = 'fichier', [string]$Accept, [int]$Attempts = 3)
+
+    for ($i = 1; $i -le $Attempts; $i++) {
+        try {
+            Invoke-FileDownloadOnce -Url $Url -OutFile $OutFile -Label $Label -Accept $Accept
+            return
+        } catch {
+            Write-Log "Téléchargement de $Label : tentative $i/$Attempts échouée ($($_.Exception.Message))" 'WARN'
+            Remove-Item -Path $OutFile -Force -ErrorAction SilentlyContinue
+            if ($i -eq $Attempts) { throw }
+            Set-TaskProgress -Stage "Téléchargement : $Label" -Detail "nouvelle tentative dans $(3 * $i) s..."
+            Start-Sleep -Seconds (3 * $i)
+        }
+    }
+}
+
+function Invoke-FileDownloadOnce {
+    param([string]$Url, [string]$OutFile, [string]$Label, [string]$Accept)
 
     $request = [System.Net.HttpWebRequest]::Create($Url)
+    if ($Accept) { $request.Accept = $Accept }
     $request.UserAgent        = $script:UserAgent
     $request.Timeout          = 30000
     $request.ReadWriteTimeout = 60000

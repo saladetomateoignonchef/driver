@@ -636,11 +636,11 @@ function Show-MainWindow {
         $r = $script:AppRelease
         if ((Show-Message "Mettre à jour Driver en version $($r.Version) ?`r`n`r`nDriver se relancera tout seul à la fin." 'Mise à jour de Driver' 'YesNo' 'Question') -ne 'Yes') { return }
         Set-Busy $true "Mise à jour de Driver en version $($r.Version)..."
-        Start-BackgroundJob 'selfupdate' @($script:AppRoot, $r.AssetUrl, $r.Version) {
-            param($root, $url, $version)
+        Start-BackgroundJob 'selfupdate' @($script:AppRoot, $r.AssetUrl, $r.Version, $r.AssetWebUrl) {
+            param($root, $url, $version, $webUrl)
             . (Join-Path $root 'src\Loader.ps1')
             Initialize-AppFolder
-            Install-AppUpdate -AssetUrl $url -Version $version
+            Install-AppUpdate -AssetUrl $url -Version $version -AssetWebUrl $webUrl
         }
     }
 

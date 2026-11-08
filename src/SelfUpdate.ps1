@@ -20,7 +20,10 @@ function Get-LatestAppRelease {
         Tag      = [string]$rel.tag_name
         Notes    = [string]$rel.body
         PageUrl  = [string]$rel.html_url
-        AssetUrl = if ($asset) { [string]$asset.browser_download_url } else { $null }
+        # Lien de l'API (fiable) + lien classique en secours : le lien classique
+        # github.com/.../releases/download/... a déjà renvoyé des erreurs 504.
+        AssetUrl = if ($asset) { [string]$asset.url } else { $null }
+        AssetWebUrl = if ($asset) { [string]$asset.browser_download_url } else { $null }
     }
 }
 
@@ -39,14 +42,21 @@ function Test-AppUpdate {
 }
 
 function Install-AppUpdate {
-    param([Parameter(Mandatory)][string]$AssetUrl, [Parameter(Mandatory)][string]$Version)
+    param([Parameter(Mandatory)][string]$AssetUrl, [Parameter(Mandatory)][string]$Version, [string]$AssetWebUrl)
 
     $work = Join-Path $script:DownloadDir "driver-update-$Version"
     if (Test-Path $work) { Remove-Item -Path $work -Recurse -Force }
     New-Item -ItemType Directory -Path $work -Force | Out-Null
     $zip = Join-Path $work 'driver.zip'
 
-    Invoke-FileDownload -Url $AssetUrl -OutFile $zip -Label "Driver $Version"
+    try {
+        # API GitHub : "Accept: application/octet-stream" renvoie le fichier lui-même
+        Invoke-FileDownload -Url $AssetUrl -OutFile $zip -Label "Driver $Version" -Accept 'application/octet-stream'
+    } catch {
+        if (-not $AssetWebUrl) { throw }
+        Write-Log "Téléchargement via l'API impossible, essai du lien classique : $AssetWebUrl" 'WARN'
+        Invoke-FileDownload -Url $AssetWebUrl -OutFile $zip -Label "Driver $Version"
+    }
     Set-TaskProgress -Stage "Installation de Driver $Version"
     Expand-Archive -Path $zip -DestinationPath (Join-Path $work 'files') -Force
     Get-ChildItem -Path $work -Recurse -File | Unblock-File
