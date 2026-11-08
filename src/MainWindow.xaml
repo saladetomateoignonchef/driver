@@ -16,7 +16,14 @@
     <SolidColorBrush x:Key="BtnLineBrush" Color="#D3DAE1"/>
     <SolidColorBrush x:Key="ChipBrush" Color="#F1F5F9"/>
     <SolidColorBrush x:Key="ChipTextBrush" Color="#334155"/>
-    <SolidColorBrush x:Key="ToggleOffBrush" Color="#CBD5E1"/>
+    <SolidColorBrush x:Key="ToggleOnBrush" Color="#22C55E"/>
+    <SolidColorBrush x:Key="ToggleOffBrush" Color="#EF4444"/>
+    <SolidColorBrush x:Key="ToggleOnLineBrush" Color="#00000000"/>
+    <SolidColorBrush x:Key="ToggleOffLineBrush" Color="#00000000"/>
+    <SolidColorBrush x:Key="ToggleOnTextBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="ToggleOffTextBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="ToggleKnobOnBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="ToggleKnobOffBrush" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="DropLineBrush" Color="#9FB3C5"/>
     <SolidColorBrush x:Key="SelectedBrush" Color="#E6F4F1"/>
     <SolidColorBrush x:Key="AccentBrush" Color="#0F766E"/>
@@ -119,7 +126,7 @@
       </Setter>
     </Style>
 
-    <!-- ===== Interrupteur animé (vert ON / rouge OFF, le rond glisse) ===== -->
+    <!-- ===== Interrupteur animé (ON / OFF) : couleurs prises dans le thème (Toggle*Brush) ===== -->
     <Style x:Key="Toggle" TargetType="CheckBox">
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
@@ -128,46 +135,70 @@
           <ControlTemplate TargetType="CheckBox">
             <StackPanel Orientation="Horizontal" Background="Transparent">
               <Grid Width="58" Height="28" SnapsToDevicePixels="True">
-                <Border x:Name="track" CornerRadius="14" Background="#EF4444"/>
-                <TextBlock x:Name="onText" Text="ON" FontSize="10" FontWeight="Bold" Foreground="White" Opacity="0"
+                <Border x:Name="offTrack" CornerRadius="14" Background="{DynamicResource ToggleOffBrush}" BorderBrush="{DynamicResource ToggleOffLineBrush}" BorderThickness="1.5"/>
+                <Border x:Name="onTrack" CornerRadius="14" Opacity="0" Background="{DynamicResource ToggleOnBrush}" BorderBrush="{DynamicResource ToggleOnLineBrush}" BorderThickness="1.5"/>
+                <TextBlock x:Name="onText" Text="ON" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource ToggleOnTextBrush}" Opacity="0"
                            VerticalAlignment="Center" HorizontalAlignment="Left" Margin="9,0,0,0"/>
-                <TextBlock x:Name="offText" Text="OFF" FontSize="10" FontWeight="Bold" Foreground="White"
+                <TextBlock x:Name="offText" Text="OFF" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource ToggleOffTextBrush}"
                            VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,7,0"/>
-                <Ellipse x:Name="knob" Width="22" Height="22" Fill="White" HorizontalAlignment="Left" Margin="3,0,0,0">
-                  <Ellipse.RenderTransform><TranslateTransform X="0"/></Ellipse.RenderTransform>
-                  <Ellipse.Effect><DropShadowEffect BlurRadius="5" ShadowDepth="1" Opacity="0.35" Color="#0B1F33"/></Ellipse.Effect>
-                </Ellipse>
+                <Grid x:Name="knob" Width="22" Height="22" HorizontalAlignment="Left" Margin="3,0,0,0">
+                  <Grid.RenderTransform><TranslateTransform X="0"/></Grid.RenderTransform>
+                  <Grid.Effect><DropShadowEffect BlurRadius="5" ShadowDepth="1" Opacity="0.35" Color="#0B1F33"/></Grid.Effect>
+                  <Ellipse x:Name="knobOff" Fill="{DynamicResource ToggleKnobOffBrush}"/>
+                  <Ellipse x:Name="knobOn" Fill="{DynamicResource ToggleKnobOnBrush}" Opacity="0"/>
+                </Grid>
               </Grid>
               <ContentPresenter Margin="12,0,0,0" VerticalAlignment="Center"/>
             </StackPanel>
             <ControlTemplate.Triggers>
               <Trigger Property="IsChecked" Value="True">
-                <Trigger.EnterActions>
-                  <BeginStoryboard>
-                    <Storyboard>
-                      <DoubleAnimation Storyboard.TargetName="knob" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="30" Duration="0:0:0.2">
-                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                      </DoubleAnimation>
-                      <ColorAnimation Storyboard.TargetName="track" Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)" To="#22C55E" Duration="0:0:0.2"/>
-                      <DoubleAnimation Storyboard.TargetName="onText" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.2"/>
-                      <DoubleAnimation Storyboard.TargetName="offText" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.2"/>
-                    </Storyboard>
-                  </BeginStoryboard>
-                </Trigger.EnterActions>
-                <Trigger.ExitActions>
-                  <BeginStoryboard>
-                    <Storyboard>
-                      <DoubleAnimation Storyboard.TargetName="knob" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="0" Duration="0:0:0.2">
-                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                      </DoubleAnimation>
-                      <ColorAnimation Storyboard.TargetName="track" Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)" To="#EF4444" Duration="0:0:0.2"/>
-                      <DoubleAnimation Storyboard.TargetName="onText" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.2"/>
-                      <DoubleAnimation Storyboard.TargetName="offText" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.2"/>
-                    </Storyboard>
-                  </BeginStoryboard>
-                </Trigger.ExitActions>
+                <Trigger.EnterActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="knob" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="30" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="onTrack" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="offTrack" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="onText" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="offText" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="knobOn" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="knobOff" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation></Storyboard></BeginStoryboard></Trigger.EnterActions>
+                <Trigger.ExitActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="knob" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="0" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="onTrack" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="offTrack" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="onText" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="offText" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="knobOn" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="knobOff" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation></Storyboard></BeginStoryboard></Trigger.ExitActions>
               </Trigger>
               <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- ===== Interrupteur du thème : soleil / lune, le rond glisse sous l'icône active ===== -->
+    <Style x:Key="ThemeSwitch" TargetType="CheckBox">
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="CheckBox">
+            <StackPanel Orientation="Horizontal" Background="Transparent">
+              <Grid Width="92" Height="42" SnapsToDevicePixels="True">
+                <Border x:Name="trackLight" CornerRadius="21" BorderBrush="#C9CED6" BorderThickness="1">
+                  <Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#E5E7EB" Offset="0"/><GradientStop Color="#D1D5DB" Offset="1"/></LinearGradientBrush></Border.Background>
+                </Border>
+                <Border x:Name="trackDark" CornerRadius="21" Opacity="0" BorderBrush="#2B3A4B" BorderThickness="1">
+                  <Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#1F2937" Offset="0"/><GradientStop Color="#111827" Offset="1"/></LinearGradientBrush></Border.Background>
+                </Border>
+                <Grid x:Name="knob" Width="34" Height="34" HorizontalAlignment="Left" Margin="4,0,0,0">
+                  <Grid.RenderTransform><TranslateTransform X="0"/></Grid.RenderTransform>
+                  <Grid.Effect><DropShadowEffect BlurRadius="7" ShadowDepth="2" Opacity="0.35" Color="#000000"/></Grid.Effect>
+                  <Ellipse x:Name="knobLight">
+                    <Ellipse.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FFFFFF" Offset="0"/><GradientStop Color="#F3F4F6" Offset="1"/></LinearGradientBrush></Ellipse.Fill>
+                  </Ellipse>
+                  <Ellipse x:Name="knobDark" Opacity="0">
+                    <Ellipse.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#4B5563" Offset="0"/><GradientStop Color="#374151" Offset="1"/></LinearGradientBrush></Ellipse.Fill>
+                  </Ellipse>
+                </Grid>
+                <Path x:Name="sunBright" Data="M16.5,12 A4.5,4.5 0 1 1 7.5,12 A4.5,4.5 0 1 1 16.5,12 Z M12,2.5 L12,4.7 M12,19.3 L12,21.5 M2.5,12 L4.7,12 M19.3,12 L21.5,12 M5.3,5.3 L6.8,6.8 M17.2,17.2 L18.7,18.7 M5.3,18.7 L6.8,17.2 M17.2,6.8 L18.7,5.3" Stroke="#F59E0B" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="22" Height="22" Stretch="Uniform" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0,0,0" Opacity="1" IsHitTestVisible="False"/>
+                <Path x:Name="sunDim" Data="M16.5,12 A4.5,4.5 0 1 1 7.5,12 A4.5,4.5 0 1 1 16.5,12 Z M12,2.5 L12,4.7 M12,19.3 L12,21.5 M2.5,12 L4.7,12 M19.3,12 L21.5,12 M5.3,5.3 L6.8,6.8 M17.2,17.2 L18.7,18.7 M5.3,18.7 L6.8,17.2 M17.2,6.8 L18.7,5.3" Stroke="#6B7280" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="22" Height="22" Stretch="Uniform" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0,0,0" Opacity="0" IsHitTestVisible="False"/>
+                <Path x:Name="moonDim" Data="M20,14.5 A8,8 0 1 1 9.5,4 A6.3,6.3 0 0 0 20,14.5 Z" Stroke="#9CA3AF" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="22" Height="22" Stretch="Uniform" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" Opacity="1" IsHitTestVisible="False"/>
+                <Path x:Name="moonBright" Data="M20,14.5 A8,8 0 1 1 9.5,4 A6.3,6.3 0 0 0 20,14.5 Z" Stroke="#F3F4F6" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="22" Height="22" Stretch="Uniform" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" Opacity="0" IsHitTestVisible="False"/>
+              </Grid>
+              <ContentPresenter Margin="14,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Trigger.EnterActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="knob" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="50" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="trackDark" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="knobDark" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="sunBright" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="sunDim" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="moonDim" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="moonBright" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation></Storyboard></BeginStoryboard></Trigger.EnterActions>
+                <Trigger.ExitActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="knob" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="0" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="trackDark" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="knobDark" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="sunBright" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="sunDim" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="moonDim" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation><DoubleAnimation Storyboard.TargetName="moonBright" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation></Storyboard></BeginStoryboard></Trigger.ExitActions>
+              </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
         </Setter.Value>
@@ -613,7 +644,7 @@
             <Border Style="{StaticResource Card}" Margin="0,0,0,10">
               <StackPanel>
                 <TextBlock Text="{DynamicResource L_SetTheme}" Style="{StaticResource SectionTitle}"/>
-                <CheckBox x:Name="ChkDarkMode" Style="{StaticResource Toggle}" Content="{DynamicResource L_SetThemeDark}" Margin="0,12,0,0"/>
+                <CheckBox x:Name="ChkDarkMode" Style="{StaticResource ThemeSwitch}" Content="{DynamicResource L_SetThemeDark}" Margin="0,12,0,0"/>
               </StackPanel>
             </Border>
 

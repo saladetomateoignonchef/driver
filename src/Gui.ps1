@@ -16,14 +16,19 @@ $script:Themes = @{
     Light = @{
         BgBrush = '#F4F6F8'; SurfaceBrush = '#FFFFFF'; SurfaceAltBrush = '#F8FAFC'; LineBrush = '#E3E8ED'
         TextBrush = '#17202A'; MutedBrush = '#5D6B78'; BtnLineBrush = '#D3DAE1'; ChipBrush = '#F1F5F9'
-        ChipTextBrush = '#334155'; ToggleOffBrush = '#CBD5E1'; DropLineBrush = '#9FB3C5'; SelectedBrush = '#E6F4F1'
+        ChipTextBrush = '#334155'; DropLineBrush = '#9FB3C5'; SelectedBrush = '#E6F4F1'
         BannerBrush = '#CCFBF1'; BannerTextBrush = '#134E4A'
+        ToggleOnBrush = '#22C55E'; ToggleOffBrush = '#EF4444'; ToggleOnLineBrush = '#00000000'; ToggleOffLineBrush = '#00000000'
+        ToggleOnTextBrush = '#FFFFFF'; ToggleOffTextBrush = '#FFFFFF'; ToggleKnobOnBrush = '#FFFFFF'; ToggleKnobOffBrush = '#FFFFFF'
     }
     Dark = @{
         BgBrush = '#0E1621'; SurfaceBrush = '#16212D'; SurfaceAltBrush = '#1B2836'; LineBrush = '#263546'
         TextBrush = '#E6EDF3'; MutedBrush = '#93A4B5'; BtnLineBrush = '#34465A'; ChipBrush = '#223244'
-        ChipTextBrush = '#CBD5E1'; ToggleOffBrush = '#3A4A5C'; DropLineBrush = '#45607A'; SelectedBrush = '#173A37'
+        ChipTextBrush = '#CBD5E1'; DropLineBrush = '#45607A'; SelectedBrush = '#173A37'
         BannerBrush = '#134E4A'; BannerTextBrush = '#CCFBF1'
+        # Interrupteurs en thème sombre (couleurs adoucies : variante choisie dans les maquettes)
+        ToggleOnBrush = '#22C55E'; ToggleOffBrush = '#EF4444'; ToggleOnLineBrush = '#00000000'; ToggleOffLineBrush = '#00000000'
+        ToggleOnTextBrush = '#FFFFFF'; ToggleOffTextBrush = '#FFFFFF'; ToggleKnobOnBrush = '#FFFFFF'; ToggleKnobOffBrush = '#FFFFFF'
     }
 }
 
