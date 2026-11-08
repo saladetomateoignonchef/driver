@@ -24,7 +24,7 @@ function Show-MainWindow {
     # ---------- Fenêtre ----------
     $form = New-Object System.Windows.Forms.Form
     $form.Text          = 'Driver - Mise à jour des pilotes'
-    $form.Size          = New-Object System.Drawing.Size(940, 560)
+    $form.Size          = New-Object System.Drawing.Size(1080, 580)
     $form.MinimumSize   = New-Object System.Drawing.Size(720, 400)
     $form.StartPosition = 'CenterScreen'
     $form.Font          = New-Object System.Drawing.Font('Segoe UI', 9)
@@ -51,19 +51,21 @@ function Show-MainWindow {
     # ---------- Barre du bas : options + boutons ----------
     $panel = New-Object System.Windows.Forms.FlowLayoutPanel
     $panel.Dock          = 'Bottom'
-    $panel.Height        = 48
+    $panel.AutoSize      = $true             # passe sur 2 lignes si la fenêtre est étroite
+    $panel.AutoSizeMode  = 'GrowAndShrink'
     $panel.Padding       = New-Object System.Windows.Forms.Padding(8)
     $panel.FlowDirection = 'LeftToRight'
 
     $btnSearch  = New-Object System.Windows.Forms.Button -Property @{ Text = 'Rechercher'; Width = 110; Height = 30 }
     $btnInstall = New-Object System.Windows.Forms.Button -Property @{ Text = 'Installer la sélection'; Width = 160; Height = 30; Enabled = $false }
+    $btnBoard   = New-Object System.Windows.Forms.Button -Property @{ Text = 'Site carte mère'; Width = 120; Height = 30 }
     $btnLogs    = New-Object System.Windows.Forms.Button -Property @{ Text = 'Journaux'; Width = 90; Height = 30 }
     $btnClose   = New-Object System.Windows.Forms.Button -Property @{ Text = 'Fermer'; Width = 90; Height = 30 }
     $chkAll     = New-Object System.Windows.Forms.CheckBox -Property @{ Text = 'Afficher tous les pilotes'; Checked = $false; AutoSize = $true; Margin = (New-Object System.Windows.Forms.Padding(12, 8, 0, 0)) }
     $chkRestore = New-Object System.Windows.Forms.CheckBox -Property @{ Text = 'Créer un point de restauration'; Checked = $true; AutoSize = $true; Margin = (New-Object System.Windows.Forms.Padding(12, 8, 12, 0)) }
     $progress   = New-Object System.Windows.Forms.ProgressBar -Property @{ Width = 150; Height = 20; Style = 'Marquee'; Visible = $false; Margin = (New-Object System.Windows.Forms.Padding(6, 6, 0, 0)) }
 
-    $panel.Controls.AddRange(@($btnSearch, $btnInstall, $chkRestore, $chkAll, $btnLogs, $btnClose, $progress))
+    $panel.Controls.AddRange(@($btnSearch, $btnInstall, $chkRestore, $chkAll, $btnBoard, $btnLogs, $btnClose, $progress))
     $form.Controls.Add($lblStatus)
     $form.Controls.Add($panel)
     $form.Controls.Add($list)
@@ -212,6 +214,18 @@ function Show-MainWindow {
             Install-DriverUpdate -Candidate $items -CreateRestorePoint:$restorePoint
         }
         $timer.Start()
+    })
+
+    # Carte mère : on affiche le modèle dans l'info-bulle et on ouvre sa page support
+    try {
+        $board = Get-MotherboardInfo
+        $toolTip = New-Object System.Windows.Forms.ToolTip
+        $toolTip.SetToolTip($btnBoard, "Ouvre la page des pilotes de ta carte mère : $($board.Manufacturer) $($board.Product)")
+    } catch { $board = $null }
+    $btnBoard.Add_Click({
+        $url = Get-MotherboardSupportUrl -Board $board
+        Write-Log "Ouverture de la page support carte mère : $url"
+        Start-Process $url
     })
 
     $btnLogs.Add_Click({ Start-Process explorer.exe -ArgumentList $script:LogDir })

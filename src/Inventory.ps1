@@ -52,6 +52,38 @@ function Get-VendorDriverList {
         Sort-Object Manufacturer, Name
 }
 
+function Get-MotherboardInfo {
+    $bb = Get-CimInstance -ClassName Win32_BaseBoard | Select-Object -First 1
+    [pscustomobject]@{
+        Manufacturer = ([string]$bb.Manufacturer).Trim()
+        Product      = ([string]$bb.Product).Trim()
+        Version      = ([string]$bb.Version).Trim()
+    }
+}
+
+function Get-MotherboardSupportUrl {
+    <#
+        Construit l'adresse de la page "Support" de la carte mère.
+        Gigabyte bloque les scripts (protection anti-robots) : on ne peut pas lire
+        la page automatiquement, mais on peut l'ouvrir dans le navigateur.
+        Format Gigabyte : https://www.gigabyte.com/fr/Motherboard/H510M-H-V2-rev-10/support
+        Autres marques : recherche web sur le modèle.
+    #>
+    param([object]$Board)
+    if (-not $Board) { $Board = Get-MotherboardInfo }
+
+    if ($Board.Manufacturer -match 'Gigabyte') {
+        $slug = ($Board.Product -replace '\s+', '-')
+        # Révision : Windows renvoie souvent "x.x" ou "Default string" -> on prend 1.0 par défaut
+        $rev = '10'
+        if ($Board.Version -match '^(\d+)\.(\d+)') { $rev = $Matches[1] + $Matches[2] }
+        return "https://www.gigabyte.com/fr/Motherboard/$slug-rev-$rev/support"
+    }
+
+    $query = [uri]::EscapeDataString("$($Board.Manufacturer) $($Board.Product) pilotes support")
+    return "https://www.bing.com/search?q=$query"
+}
+
 function Find-InventoryDevice {
     <# Retrouve un périphérique de l'inventaire à partir d'un Hardware ID (Windows Update). #>
     param([object[]]$Inventory, [string]$HardwareId)
