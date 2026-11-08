@@ -108,8 +108,8 @@
       <Setter Property="Foreground" Value="#B8C7D6"/>
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="FontSize" Value="13.5"/>
-      <Setter Property="Padding" Value="12,9"/>
-      <Setter Property="Margin" Value="0,0,0,3"/>
+      <Setter Property="Padding" Value="12,8"/>
+      <Setter Property="Margin" Value="0,0,0,2"/>
       <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
       <Setter Property="Template">
         <Setter.Value>
@@ -354,6 +354,7 @@
         <Button x:Name="NavLinks" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="{DynamicResource L_NavLinks}"/></Button>
         <Button x:Name="NavPackage" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="{DynamicResource L_NavPackage}"/></Button>
         <Button x:Name="NavLogs" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="{DynamicResource L_NavLogs}"/></Button>
+        <Button x:Name="NavHelp" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="{DynamicResource L_NavHelp}"/></Button>
         <Button x:Name="NavSettings" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="{DynamicResource L_NavSettings}"/></Button>
 
         <Border DockPanel.Dock="Bottom" Background="#1A3249" CornerRadius="10" Padding="14,12">

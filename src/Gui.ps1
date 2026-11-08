@@ -1192,6 +1192,11 @@ function Show-MainWindow {
     $ui.NavLinks.Add_Click({ Set-View 'links' })
     $ui.NavPackage.Add_Click({ Select-Package })
     $ui.NavLogs.Add_Click({ Start-Process explorer.exe -ArgumentList $script:LogDir })
+    $ui.NavHelp.Add_Click({
+        # Guide dans la langue choisie, affiché par GitHub
+        $file = if ($script:Language -eq 'en') { 'GUIDE-en.md' } else { 'GUIDE-fr.md' }
+        Start-Process "https://github.com/$($script:GitHubRepo)/blob/main/docs/$file"
+    })
     $ui.BtnSearch.Add_Click({ Start-Search })
     $ui.BtnInstall.Add_Click({ Start-Install })
     $ui.BtnGitHubUpdate.Add_Click({ Invoke-GitHubUpdateCheck })

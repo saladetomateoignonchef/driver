@@ -5,6 +5,8 @@ de mon PC et me propose de les mettre à jour. **Rien n'est installé sans ma va
 
 ![PowerShell 5.1](https://img.shields.io/badge/PowerShell-5.1-blue) ![Windows 11](https://img.shields.io/badge/Windows-11-0078D6) [![Tests](https://github.com/saladetomateoignonchef/driver/actions/workflows/ci.yml/badge.svg)](https://github.com/saladetomateoignonchef/driver/actions/workflows/ci.yml)
 
+📖 **Guide d'utilisation : [français](docs/GUIDE-fr.md) · [English](docs/GUIDE-en.md)** (aussi accessible depuis le menu de l'application)
+
 ## Fonctionnalités
 
 | | |
@@ -24,7 +26,7 @@ de mon PC et me propose de les mettre à jour. **Rien n'est installé sans ma va
 | **Langues** | Français / anglais (`src/lang/fr.json`, `src/lang/en.json`), changement immédiat |
 | **Personnalisable** | Taille du texte (100/115/130 %), sources des pilotes activables, dépôt GitHub des mises à jour modifiable |
 | **Export / import** | Paramètres, liens et configuration matérielle dans un seul fichier |
-| **Entretien** | Journaux et téléchargements de plus de 30 jours supprimés automatiquement |
+| **Entretien** | Logs et téléchargements de plus de 30 jours supprimés automatiquement |
 
 ## Fonctionnement
 
@@ -50,7 +52,7 @@ de mon PC et me propose de les mettre à jour. **Rien n'est installé sans ma va
 | NVIDIA | `lookupValueSearch.aspx` (trouve l'ID du modèle) puis `AjaxDriverService.php` (dernier pilote en JSON) |
 | Versions NVIDIA | Windows affiche `32.0.16.1088`, NVIDIA affiche `610.88` → on garde les 5 derniers chiffres |
 | Windows Update | Recherche `IsInstalled=0 and Type='Driver'`, puis téléchargement et installation via l'API COM |
-| Sécurité | Vérification de la signature Authenticode (*NVIDIA Corporation*), point de restauration, journaux |
+| Sécurité | Vérification de la signature Authenticode (*NVIDIA Corporation*), point de restauration, logs |
 | Démarrage | Tâche planifiée à l'ouverture de session (+2 min) : la fenêtre ne s'ouvre **que** s'il y a des mises à jour |
 
 ## Installer un paquet téléchargé à la main (glisser-déposer)
@@ -78,7 +80,7 @@ driver/
 ├── Uninstall.ps1              # désinstalle proprement
 ├── Installer-Driver.cmd       # installateur en un clic (publié avec chaque version)
 ├── src/
-│   ├── Common.ps1             # journaux, droits admin, conversion de versions
+│   ├── Common.ps1             # logs, droits admin, conversion de versions
 │   ├── Inventory.ps1          # inventaire matériel (WMI)
 │   ├── Core.ps1               # orchestration recherche / installation
 │   ├── MainWindow.xaml        # mise en page de la fenêtre (WPF, style tableau de bord)
@@ -152,9 +154,9 @@ Pour autoriser les scripts dans la fenêtre PowerShell ouverte uniquement (rien 
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
-## Journaux
+## Logs
 
-`C:\ProgramData\DriverUpdater\logs\AAAA-MM-JJ.log` (bouton **Journaux** dans la fenêtre).
+`C:\ProgramData\DriverUpdater\logs\AAAA-MM-JJ.log` (bouton **Logs** dans la fenêtre).
 
 ## Publier une nouvelle version
 
@@ -182,7 +184,7 @@ powershell.exe -ExecutionPolicy Bypass -File .\Uninstall.ps1
   En cas de panne, Windows Update prend le relais pour la carte graphique.
 - AMD et Intel n'ont pas d'interface publique pour vérifier leurs pilotes : ils passent par Windows Update,
   et la page « Sites » ouvre leurs outils officiels (AMD Auto-Detect, Intel Driver & Support Assistant).
-- Les journaux restent en français, quelle que soit la langue choisie.
+- Les logs restent en français, quelle que soit la langue choisie.
 - Le BIOS et les firmwares ne sont pas gérés (trop risqué en automatique) : un BIOS déposé dans la fenêtre est reconnu et refusé.
 - Le retour arrière n'est possible que pour les pilotes de constructeurs (`oemXX.inf`), pas pour ceux intégrés à Windows.
 - Les sauvegardes du pilote NVIDIA sont volumineuses (environ 1 Go chacune) : d'où la limite par pilote.
