@@ -146,6 +146,9 @@ function Get-DriverPackageAnalysis {
     $files = @(Get-ChildItem -Path $folder -Recurse -File)
     $infs  = @($files | Where-Object { $_.Extension -eq '.inf' })
     $exes  = @($files | Where-Object { $_.Extension -eq '.exe' })
+    # BIOS : Gigabyte = extension .F + version (H510MHV2.F5b), autres = .CAP / .ROM ; ou ZIP "mb_bios_..."
+    $bios  = @($files | Where-Object { $_.Extension -match '^\.(F\d+[a-z]?|CAP|ROM)$' } | ForEach-Object { $_.Name })
+    if ($bios.Count -eq 0 -and (Split-Path $Path -Leaf) -match '(?i)bios') { $bios = @(Split-Path $Path -Leaf) }
     $infSummary = @($infs | ForEach-Object { Get-InfSummary -Path $_.FullName -Text (Read-InfText -Path $_.FullName) })
 
     # Périphériques du PC du même type que ceux visés par le paquet (ex. MEDIA = audio)
@@ -175,6 +178,7 @@ function Get-DriverPackageAnalysis {
         FileCount   = $files.Count
         InfCount    = $infs.Count
         ExeCount    = $exes.Count
+        BiosFiles   = $bios
         InfSummary  = $infSummary
         PcDevices   = $pcDevices
         Drivers     = $drivers

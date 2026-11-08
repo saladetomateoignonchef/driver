@@ -170,7 +170,15 @@ function Show-MainWindow {
         [void]$sb.AppendLine()
 
         $infList = @($Analysis.InfSummary | Where-Object { $_ })
-        if ($Analysis.InfCount -eq 0 -and $Analysis.ExeCount -eq 0) {
+        $bios    = @($Analysis.BiosFiles | Where-Object { $_ })
+        if ($bios.Count -gt 0 -and $Analysis.InfCount -eq 0) {
+            [void]$sb.AppendLine("=> C'est un BIOS ($($bios[0])), pas un pilote.")
+            [void]$sb.AppendLine('Un BIOS ne s''installe pas depuis Windows : il se met à jour depuis le BIOS lui-même (Q-Flash chez Gigabyte).')
+            [void]$sb.AppendLine('Driver ne le fait volontairement pas : une coupure pendant la mise à jour peut rendre le PC inutilisable.')
+            [void]$sb.AppendLine()
+            [void]$sb.AppendLine('Pour les pilotes, prends l''onglet « Pilotes » (Driver) de la page support, et non « BIOS ».')
+        }
+        elseif ($Analysis.InfCount -eq 0 -and $Analysis.ExeCount -eq 0) {
             [void]$sb.AppendLine('=> Ce paquet ne contient ni pilote (.inf) ni installateur (.exe). Ce n''est probablement pas un pilote (manuel, utilitaire, BIOS ?).')
         }
         elseif ($Analysis.InfCount -eq 0) {
