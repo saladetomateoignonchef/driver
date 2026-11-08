@@ -102,7 +102,19 @@ driver/
 └── docs/cahier-des-charges.md
 ```
 
-## Installation en un clic (recommandé)
+## Installation en une commande (recommandé)
+
+Ouvrir **Windows PowerShell en administrateur** (menu Démarrer → taper `powershell` → clic droit →
+*Exécuter en tant qu'administrateur*), puis coller :
+
+```powershell
+irm https://raw.githubusercontent.com/saladetomateoignonchef/driver/main/get-driver.ps1 | iex
+```
+
+La commande télécharge la dernière version, l'installe (ou la répare) et lance Driver.
+Les réglages et sauvegardes sont conservés. Aucun navigateur n'est nécessaire.
+
+## Installation en un clic (fichier .cmd)
 
 1. Sur la page [Releases](https://github.com/saladetomateoignonchef/driver/releases/latest), télécharger **`Installer-Driver.cmd`**.
 2. Double-cliquer dessus et accepter la demande d'autorisation de Windows.

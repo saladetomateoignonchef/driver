@@ -114,6 +114,12 @@ jobs:
         shell: cmd
         run: Installer-Driver.cmd
 
+      - name: Installation par commande PowerShell (get-driver.ps1 | iex)
+        shell: powershell
+        run: |
+          # Meme principe que : irm https://raw.githubusercontent.com/.../get-driver.ps1 | iex
+          Get-Content .\get-driver.ps1 -Raw -Encoding UTF8 | Invoke-Expression
+
       - name: Verification de l'installation
         shell: powershell
         run: |
