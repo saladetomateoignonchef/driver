@@ -29,6 +29,7 @@ Write-Host "1/5 Copie des fichiers dans $target" -ForegroundColor Cyan
 New-Item -ItemType Directory -Path $target -Force | Out-Null
 if (Test-Path (Join-Path $target 'src')) { Remove-Item (Join-Path $target 'src') -Recurse -Force }
 Copy-Item -Path (Join-Path $PSScriptRoot 'DriverUpdater.ps1') -Destination $target -Force
+Copy-Item -Path (Join-Path $PSScriptRoot 'Uninstall.ps1') -Destination $target -Force
 Copy-Item -Path (Join-Path $PSScriptRoot 'src') -Destination $target -Recurse -Force
 Get-ChildItem -Path $target -Recurse -File | Unblock-File   # retire le marquage "téléchargé depuis Internet"
 
