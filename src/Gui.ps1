@@ -9,6 +9,7 @@
 # =============================================================================
 
 . (Join-Path $PSScriptRoot 'DropTarget.ps1')   # charge aussi WPF
+[DriverWindowTheme]::EnableDpiAwareness()      # avant toute fenêtre : affichage net
 
 # ---------- Thèmes (couleurs remplacées dans les ressources de la fenêtre) ----------
 $script:Themes = @{
@@ -238,7 +239,49 @@ function Show-MainWindow {
 
     # ---------- Fonctions internes ----------
     function Show-Message([string]$Text, [string]$Title = 'Driver', [string]$Buttons = 'OK', [string]$Icon = 'Information') {
-        return [string]([System.Windows.MessageBox]::Show($window, $Text, $Title, $Buttons, $Icon))
+        <# Fenêtre de message aux couleurs de Driver (Dialog.xaml). Renvoie 'OK', 'Yes' ou 'No'. #>
+        try {
+            [xml]$dx = Get-Content -Path (Join-Path $PSScriptRoot 'Dialog.xaml') -Raw -Encoding UTF8
+            $dlg = [System.Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $dx))
+            # Mêmes couleurs, styles et textes que la fenêtre principale (thème clair/sombre compris)
+            foreach ($key in @($window.Resources.Keys)) { $dlg.Resources[$key] = $window.Resources[$key] }
+            if ($window.IsLoaded) { $dlg.Owner = $window } else { $dlg.WindowStartupLocation = 'CenterScreen' }
+            $dlg.Title = $Title
+            $f = if ($script:Settings) { [int]$script:Settings.Zoom / 100 } else { 1 }
+            if ($f -gt 1) { $dlg.Content.LayoutTransform = New-Object System.Windows.Media.ScaleTransform($f, $f); $dlg.Width = 480 * $f }
+
+            $look = switch ($Icon) {
+                'Warning'  { @{ Bg = '#FEF3C7'; Fg = '#B45309'; Glyph = '!' } }
+                'Error'    { @{ Bg = '#FEE2E2'; Fg = '#B91C1C'; Glyph = '✕' } }
+                'Question' { @{ Bg = '#CCFBF1'; Fg = '#0F766E'; Glyph = '?' } }
+                default    { @{ Bg = '#CCFBF1'; Fg = '#0F766E'; Glyph = 'i' } }
+            }
+            $dlg.FindName('DlgIcon').Background  = Get-Brush $look.Bg
+            $dlg.FindName('DlgGlyph').Foreground = Get-Brush $look.Fg
+            $dlg.FindName('DlgGlyph').Text       = $look.Glyph
+            $dlg.FindName('DlgTitle').Text       = $Title
+            $dlg.FindName('DlgText').Text        = $Text
+
+            $primary   = $dlg.FindName('BtnDlgPrimary')
+            $secondary = $dlg.FindName('BtnDlgSecondary')
+            $yesNo = ($Buttons -eq 'YesNo')
+            $script:DlgResult = if ($yesNo) { 'No' } else { 'OK' }
+            if ($yesNo) {
+                $primary.Content = T 'DlgYes'; $secondary.Content = T 'DlgNo'
+            } else {
+                $primary.Content = T 'DlgOk'; $secondary.Visibility = 'Collapsed'; $primary.IsCancel = $true
+            }
+            $primary.Tag = if ($yesNo) { 'Yes' } else { 'OK' }
+            $primary.Add_Click({ param($s, $e); $script:DlgResult = $s.Tag; [System.Windows.Window]::GetWindow($s).Close() })
+            $secondary.Add_Click({ param($s, $e); $script:DlgResult = 'No'; [System.Windows.Window]::GetWindow($s).Close() })
+            $dlg.FindName('DlgHeader').Add_MouseLeftButtonDown({ param($s, $e); try { [System.Windows.Window]::GetWindow($s).DragMove() } catch { } })
+            [void]$dlg.ShowDialog()
+            return [string]$script:DlgResult
+        } catch {
+            # Secours : boîte de dialogue standard de Windows
+            Write-Log "Fenêtre de message indisponible : $($_.Exception.Message)" 'WARN'
+            return [string]([System.Windows.MessageBox]::Show($Text, $Title, $Buttons, $Icon))
+        }
     }
 
     function Set-Theme([string]$Name) {
@@ -262,6 +305,9 @@ function Show-MainWindow {
         if ($Percent -notin @(100, 115, 130)) { $Percent = 100 }
         $f = $Percent / 100
         $ui.RootGrid.LayoutTransform = New-Object System.Windows.Media.ScaleTransform($f, $f)
+        # Mode "Display" : le plus net à 100 % ; mode "Ideal" : net quand le texte est agrandi
+        $mode = if ($f -eq 1) { 'Display' } else { 'Ideal' }
+        [System.Windows.Media.TextOptions]::SetTextFormattingMode($window, $mode)
         $window.MinWidth  = 1020 * $f
         $window.MinHeight = 680 * $f
         $area = [System.Windows.SystemParameters]::WorkArea
@@ -592,8 +638,7 @@ function Show-MainWindow {
         $ui.ChkNotify.IsChecked     = [bool]$s.Notifications
         $ui.RbGameReady.IsChecked   = ($s.NvidiaBranch -ne 'Studio')
         $ui.RbStudio.IsChecked      = ($s.NvidiaBranch -eq 'Studio')
-        $ui.RbLight.IsChecked       = ($s.Theme -ne 'Dark')
-        $ui.RbDark.IsChecked        = ($s.Theme -eq 'Dark')
+        $ui.ChkDarkMode.IsChecked   = ($s.Theme -eq 'Dark')
         $ui.RbLangFr.IsChecked      = ($s.Language -ne 'en')
         $ui.RbLangEn.IsChecked      = ($s.Language -eq 'en')
         $ui.RbZoom100.IsChecked     = ([int]$s.Zoom -notin @(115, 130))
@@ -638,8 +683,13 @@ function Show-MainWindow {
     function Save-Setting([string]$Name, [object]$Value) {
         if ($script:LoadingSettings) { return }
         $script:Settings.$Name = $Value
-        Save-AppSettings -Settings $script:Settings
-        Write-Log "Paramètre modifié : $Name = $Value"
+        try {
+            Save-AppSettings -Settings $script:Settings
+            Write-Log "Paramètre modifié : $Name = $Value"
+        } catch {
+            Write-Log "Paramètre $Name non enregistré : $($_.Exception.Message)" 'ERREUR'
+            [void](Show-Message (T 'SaveFailed' $_.Exception.Message) (T 'NavSettings') 'OK' 'Error')
+        }
     }
 
     # ---------- Nouveau matériel ----------
@@ -1215,8 +1265,11 @@ function Show-MainWindow {
     $ui.ChkNotify.Add_Click({       Save-Setting 'Notifications' ($ui.ChkNotify.IsChecked -eq $true) })
     $ui.RbGameReady.Add_Checked({   Save-Setting 'NvidiaBranch' 'GameReady' })
     $ui.RbStudio.Add_Checked({      Save-Setting 'NvidiaBranch' 'Studio' })
-    $ui.RbLight.Add_Checked({ Save-Setting 'Theme' 'Light'; Set-Theme 'Light' })
-    $ui.RbDark.Add_Checked({  Save-Setting 'Theme' 'Dark';  Set-Theme 'Dark' })
+    $ui.ChkDarkMode.Add_Click({
+        $theme = if ($ui.ChkDarkMode.IsChecked -eq $true) { 'Dark' } else { 'Light' }
+        Set-Theme $theme
+        Save-Setting 'Theme' $theme
+    })
     $ui.ChkProvNvidia.Add_Click({ Save-Setting 'ProviderNvidia' ($ui.ChkProvNvidia.IsChecked -eq $true) })
     $ui.ChkProvWu.Add_Click({     Save-Setting 'ProviderWindowsUpdate' ($ui.ChkProvWu.IsChecked -eq $true) })
     $ui.ChkAutoUpdate.Add_Click({ Save-Setting 'AutoUpdateCheck' ($ui.ChkAutoUpdate.IsChecked -eq $true) })
@@ -1307,6 +1360,14 @@ function Show-MainWindow {
     })
 
     # ---------- Fenêtre ----------
+    $window.Dispatcher.Add_UnhandledException({
+        param($s, $e)
+        $e.Handled = $true
+        $msg = $e.Exception.GetBaseException().Message
+        Write-Log "Erreur inattendue dans la fenêtre : $msg" 'ERREUR'
+        try { [void](Show-Message (T 'UnexpectedError' $msg) 'Driver' 'OK' 'Error') } catch { }
+    })
+
     $window.Add_SourceInitialized({
         $hwnd = (New-Object System.Windows.Interop.WindowInteropHelper($window)).Handle
         # Barre de titre bleu nuit (#12263A) et texte blanc - format 0x00BBGGRR

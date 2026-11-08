@@ -81,6 +81,14 @@ public class DriverDropHook {
 public static class DriverWindowTheme {
     [DllImport("dwmapi.dll")]
     static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+    [DllImport("user32.dll")]
+    static extern bool SetProcessDPIAware();
+
+    // Rendu net sur les écrans à mise à l'échelle (125 %, 150 %...) : sans cela, Windows
+    // étire l'image de la fenêtre et tout paraît flou / pixelisé.
+    public static void EnableDpiAwareness() {
+        try { SetProcessDPIAware(); } catch { }
+    }
 
     // Couleur de la barre de titre (Windows 11 uniquement, ignoré ailleurs). Format 0x00BBGGRR.
     public static void SetCaption(IntPtr hwnd, int captionColor, int textColor) {

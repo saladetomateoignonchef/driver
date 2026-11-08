@@ -65,7 +65,7 @@ function Save-HardwareProfile {
     if (-not (Test-Path $script:ProfileDir)) { New-Item -ItemType Directory -Path $script:ProfileDir -Force | Out-Null }
 
     $base = Join-Path $script:ProfileDir ('configuration-{0:yyyyMMdd-HHmmss}' -f [datetime]$Snapshot.Date)
-    $Snapshot | ConvertTo-Json -Depth 5 | Set-Content -Path "$base.json" -Encoding UTF8
+    $Snapshot | ConvertTo-Json -Depth 5 | Set-Content -Path "$base.json" -Encoding UTF8 -ErrorAction Stop
     # Même format que le tout premier script (lisible dans Excel)
     if (-not $SkipCsv) {
         @(Get-DeviceInventory) | Select-Object Name, Manufacturer, DriverVersion, DriverDate, Class, HardwareId |

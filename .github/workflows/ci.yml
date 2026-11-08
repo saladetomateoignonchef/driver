@@ -50,6 +50,9 @@ jobs:
             $script:AppRoot = (Get-Location).Path
             . .\src\Loader.ps1
             . .\src\Gui.ps1
+            [xml]$dx = Get-Content .\src\Dialog.xaml -Raw -Encoding UTF8
+            $dlg = [System.Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $dx))
+            foreach ($n in @('DlgIcon', 'DlgGlyph', 'DlgTitle', 'DlgText', 'BtnDlgPrimary', 'BtnDlgSecondary', 'DlgHeader')) { if (-not $dlg.FindName($n)) { throw "Dialog.xaml : $n introuvable" } }
             [xml]$xaml = Get-Content .\src\MainWindow.xaml -Raw -Encoding UTF8
             $window = [System.Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
             foreach ($node in $xaml.SelectNodes('//*[@*[local-name()="Name"]][not(ancestor::*[local-name()="ControlTemplate"])]')) {
@@ -119,6 +122,34 @@ jobs:
         run: |
           # La vraie commande donnee aux utilisateurs (fichier de ce commit sur raw.githubusercontent.com)
           irm https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/get-driver.ps1 | iex
+
+      - name: Diagnostic - ancienne protection icacls (versions 2.0 a 2.2)
+        shell: powershell
+        run: |
+          $d = Join-Path $env:TEMP 'acl-test'; New-Item -ItemType Directory $d -Force | Out-Null
+          Set-Content (Join-Path $d 'settings.json') '{}'
+          & icacls.exe $d /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' /T /Q
+          & icacls.exe (Join-Path $d 'settings.json')
+          try { Set-Content (Join-Path $d 'settings.json') '{"Theme":"Dark"}' -ErrorAction Stop; Write-Host 'Ancienne methode : ecriture OK' }
+          catch { Write-Host "Ancienne methode : ECRITURE REFUSEE ($($_.Exception.Message))" }
+
+      - name: Reglages lisibles et modifiables apres plusieurs lancements
+        shell: powershell
+        run: |
+          try {
+            $script:AppRoot = (Get-Location).Path
+            . .\src\Loader.ps1
+            Initialize-AppFolder
+            $s = Get-AppSettings; $s.Theme = 'Dark'; $s.Language = 'en'; Save-AppSettings -Settings $s
+            [void](Save-HardwareProfile -Snapshot (Get-HardwareSnapshot))
+            Initialize-AppFolder                 # 2e lancement
+            Initialize-AppFolder                 # 3e lancement
+            $r = Get-AppSettings
+            if ($r.Theme -ne 'Dark' -or $r.Language -ne 'en') { throw "Reglages non relus apres relance (Theme=$($r.Theme), Language=$($r.Language))" }
+            $r.Theme = 'Light'; Save-AppSettings -Settings $r
+            if (-not (Get-CurrentHardwareProfile)) { throw 'Configuration materielle illisible apres relance' }
+            Write-Host 'Reglages et configuration : lecture/ecriture OK apres 3 lancements'
+          } catch { Write-Host "::error::$($_.Exception.Message)"; exit 1 }
 
       - name: Verification de l'installation
         shell: powershell

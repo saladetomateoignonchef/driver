@@ -3,7 +3,7 @@
 # =============================================================================
 
 $script:AppName      = 'DriverUpdater'
-$script:AppVersion   = '2.2.3'                              # une nouvelle valeur poussée sur main = nouvelle version publiée
+$script:AppVersion   = '2.3.0'                              # une nouvelle valeur poussée sur main = nouvelle version publiée
 $script:GitHubRepo   = 'saladetomateoignonchef/driver'      # source par défaut (modifiable dans Paramètres)
 $script:DataDir      = Join-Path $env:ProgramData 'DriverUpdater'
 $script:LogDir       = Join-Path $script:DataDir 'logs'
@@ -26,7 +26,11 @@ function Initialize-AppFolder {
     # Les fichiers téléchargés y sont exécutés en administrateur : un utilisateur
     # standard ne doit pas pouvoir y déposer ou modifier un fichier entre-temps.
     if (Test-IsAdmin) {
-        & icacls.exe $script:DataDir /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' /T /Q 2>&1 | Out-Null
+        # 1) Droits posés UNIQUEMENT sur le dossier racine (pas de /T : appliquer des droits de
+        #    dossier "(OI)(CI)" aux fichiers les laissait sans aucun droit, même pour l'admin).
+        & icacls.exe $script:DataDir /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' /C /Q 2>&1 | Out-Null
+        # 2) Tout le contenu hérite de ces droits (répare aussi les fichiers abîmés par les versions 2.0 à 2.2)
+        & icacls.exe (Join-Path $script:DataDir '*') /reset /T /C /Q 2>&1 | Out-Null
     }
 }
 
@@ -138,7 +142,8 @@ function Get-AppSettings {
 
 function Save-AppSettings {
     param([Parameter(Mandatory)][object]$Settings)
-    $Settings | ConvertTo-Json -Depth 4 | Set-Content -Path $script:SettingsFile -Encoding UTF8
+    # -ErrorAction Stop : un échec d'écriture doit être signalé, pas ignoré en silence
+    $Settings | ConvertTo-Json -Depth 4 | Set-Content -Path $script:SettingsFile -Encoding UTF8 -ErrorAction Stop
 }
 
 function Test-CheckDue {

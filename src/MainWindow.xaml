@@ -56,7 +56,7 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Button">
-            <Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+            <Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" SnapsToDevicePixels="True"
                     BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" Padding="{TemplateBinding Padding}">
               <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
@@ -119,7 +119,7 @@
       </Setter>
     </Style>
 
-    <!-- ===== Interrupteur ===== -->
+    <!-- ===== Interrupteur animé (vert ON / rouge OFF, le rond glisse) ===== -->
     <Style x:Key="Toggle" TargetType="CheckBox">
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
@@ -127,17 +127,47 @@
         <Setter.Value>
           <ControlTemplate TargetType="CheckBox">
             <StackPanel Orientation="Horizontal" Background="Transparent">
-              <Border x:Name="track" Width="40" Height="22" CornerRadius="11" Background="{DynamicResource ToggleOffBrush}">
-                <Ellipse x:Name="knob" Width="16" Height="16" Fill="White" HorizontalAlignment="Left" Margin="3,0,0,0"/>
-              </Border>
-              <ContentPresenter Margin="10,0,0,0" VerticalAlignment="Center"/>
+              <Grid Width="58" Height="28" SnapsToDevicePixels="True">
+                <Border x:Name="track" CornerRadius="14" Background="#EF4444"/>
+                <TextBlock x:Name="onText" Text="ON" FontSize="10" FontWeight="Bold" Foreground="White" Opacity="0"
+                           VerticalAlignment="Center" HorizontalAlignment="Left" Margin="9,0,0,0"/>
+                <TextBlock x:Name="offText" Text="OFF" FontSize="10" FontWeight="Bold" Foreground="White"
+                           VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,7,0"/>
+                <Ellipse x:Name="knob" Width="22" Height="22" Fill="White" HorizontalAlignment="Left" Margin="3,0,0,0">
+                  <Ellipse.RenderTransform><TranslateTransform X="0"/></Ellipse.RenderTransform>
+                  <Ellipse.Effect><DropShadowEffect BlurRadius="5" ShadowDepth="1" Opacity="0.35" Color="#0B1F33"/></Ellipse.Effect>
+                </Ellipse>
+              </Grid>
+              <ContentPresenter Margin="12,0,0,0" VerticalAlignment="Center"/>
             </StackPanel>
             <ControlTemplate.Triggers>
               <Trigger Property="IsChecked" Value="True">
-                <Setter TargetName="track" Property="Background" Value="#0F766E"/>
-                <Setter TargetName="knob" Property="HorizontalAlignment" Value="Right"/>
-                <Setter TargetName="knob" Property="Margin" Value="0,0,3,0"/>
+                <Trigger.EnterActions>
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <DoubleAnimation Storyboard.TargetName="knob" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="30" Duration="0:0:0.2">
+                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                      </DoubleAnimation>
+                      <ColorAnimation Storyboard.TargetName="track" Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)" To="#22C55E" Duration="0:0:0.2"/>
+                      <DoubleAnimation Storyboard.TargetName="onText" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.2"/>
+                      <DoubleAnimation Storyboard.TargetName="offText" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.2"/>
+                    </Storyboard>
+                  </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <DoubleAnimation Storyboard.TargetName="knob" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="0" Duration="0:0:0.2">
+                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                      </DoubleAnimation>
+                      <ColorAnimation Storyboard.TargetName="track" Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)" To="#EF4444" Duration="0:0:0.2"/>
+                      <DoubleAnimation Storyboard.TargetName="onText" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.2"/>
+                      <DoubleAnimation Storyboard.TargetName="offText" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.2"/>
+                    </Storyboard>
+                  </BeginStoryboard>
+                </Trigger.ExitActions>
               </Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5"/></Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
         </Setter.Value>
@@ -152,7 +182,7 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="RadioButton">
-            <Border x:Name="bd" CornerRadius="8" Padding="14,7" BorderThickness="1"
+            <Border x:Name="bd" CornerRadius="8" Padding="14,7" BorderThickness="1" SnapsToDevicePixels="True"
                     Background="{DynamicResource SurfaceAltBrush}" BorderBrush="{DynamicResource BtnLineBrush}">
               <ContentPresenter x:Name="cp" VerticalAlignment="Center"/>
             </Border>
@@ -583,10 +613,7 @@
             <Border Style="{StaticResource Card}" Margin="0,0,0,10">
               <StackPanel>
                 <TextBlock Text="{DynamicResource L_SetTheme}" Style="{StaticResource SectionTitle}"/>
-                <WrapPanel Margin="0,10,0,0">
-                  <RadioButton x:Name="RbLight" GroupName="Theme" Style="{StaticResource Segment}" Content="{DynamicResource L_ThemeLight}"/>
-                  <RadioButton x:Name="RbDark" GroupName="Theme" Style="{StaticResource Segment}" Content="{DynamicResource L_ThemeDark}"/>
-                </WrapPanel>
+                <CheckBox x:Name="ChkDarkMode" Style="{StaticResource Toggle}" Content="{DynamicResource L_SetThemeDark}" Margin="0,12,0,0"/>
               </StackPanel>
             </Border>
 
