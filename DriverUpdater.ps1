@@ -51,6 +51,8 @@ $script:RestartRequested = $false
 try {
     Clear-OldFiles -Days 30          # journaux et téléchargements de plus de 30 jours
     $settings = Get-AppSettings
+    # Premier lancement : analyse complète du matériel, enregistrée comme configuration de référence
+    $script:ProfileCreated = Initialize-HardwareProfile
 
     if ($Startup) {
         Write-Log '===== Lancement automatique (ouverture de session) ====='
@@ -58,18 +60,23 @@ try {
             Write-Log "Vérification non due (fréquence : $($settings.CheckFrequency), dernière : $($settings.LastCheck))"
             exit 0
         }
-        $results = @(Find-DriverUpdate)
+        # Recherche basée sur la configuration enregistrée ; le nouveau matériel est signalé à part
+        $watched = Get-WatchedInventory
+        $newHw   = @($watched.NewHardware)
+        $results = @(Find-DriverUpdate -Inventory $watched.Inventory -ExcludeHardwareId @($newHw | ForEach-Object { $_.HardwareId }))
         $settings.LastCheck = (Get-Date).ToString('s')
         Save-AppSettings -Settings $settings
 
         $visible = @($results | Where-Object { -not (Test-UpdateIgnored -Candidate $_ -Settings $settings) })
-        if ($visible.Count -eq 0) {
-            Write-Log 'Aucune mise à jour (hors mises à jour ignorées) : rien à afficher.'
+        if ($visible.Count -eq 0 -and $newHw.Count -eq 0) {
+            Write-Log 'Aucune mise à jour (hors mises à jour ignorées) et aucun nouveau matériel : rien à afficher.'
             exit 0
         }
         if ($settings.Notifications) {
-            $summary = ($visible | Select-Object -First 3 | ForEach-Object { "$($_.Device) : $($_.NewVersion)" }) -join "`n"
-            if (-not (Show-UpdateNotification -Count $visible.Count -Summary $summary)) { exit 0 }
+            $lines = @($visible | Select-Object -First 3 | ForEach-Object { "$($_.Device) : $($_.NewVersion)" })
+            if ($newHw.Count) { $lines += "Nouveau matériel détecté : $($newHw.Count)" }
+            $title = if ($visible.Count) { "$($visible.Count) mise(s) à jour de pilotes disponible(s)" } else { 'Nouveau matériel détecté' }
+            if (-not (Show-UpdateNotification -Count $visible.Count -Summary ($lines -join "`n") -Title $title)) { exit 0 }
         }
         Show-MainWindow -InitialResults $results
     } else {

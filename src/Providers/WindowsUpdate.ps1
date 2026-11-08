@@ -37,7 +37,8 @@ function Get-WindowsUpdateDriverUpdate {
             -SizeMB ([math]::Round($u.MaxDownloadSize / 1MB, 1)) `
             -Key $u.Identity.UpdateID -Title $u.Title |
             Add-Member -NotePropertyName DriverClass -NotePropertyValue $u.DriverClass -PassThru |
-            Add-Member -NotePropertyName Manufacturer -NotePropertyValue $u.DriverManufacturer -PassThru
+            Add-Member -NotePropertyName Manufacturer -NotePropertyValue $u.DriverManufacturer -PassThru |
+            Add-Member -NotePropertyName HardwareId -NotePropertyValue $u.DriverHardwareID -PassThru
     }
 }
 

@@ -120,7 +120,10 @@ function New-Columns {
     foreach ($w in $Widths) {
         $cd = New-Object System.Windows.Controls.ColumnDefinition
         if ($w -eq 'Auto')  { $cd.Width = [System.Windows.GridLength]::Auto }
-        elseif ($w -eq '*') { $cd.Width = New-Object System.Windows.GridLength(1, ([System.Windows.GridUnitType]::Star)) }
+        elseif ($w -match '^(\d*)\*$') {
+            $factor = if ($Matches[1]) { [double]$Matches[1] } else { 1 }
+            $cd.Width = New-Object System.Windows.GridLength($factor, ([System.Windows.GridUnitType]::Star))
+        }
         else                { $cd.Width = New-Object System.Windows.GridLength([double]$w) }
         $grid.ColumnDefinitions.Add($cd)
     }
@@ -204,6 +207,10 @@ function Show-MainWindow {
     $script:LastSearch   = $null
     $script:Board        = $null
     $script:AppRelease   = $null
+    $script:HwScan       = $null
+    $script:HwDiff       = $null
+    $script:NewHardware  = @()
+    $script:LinkRows     = New-Object System.Collections.Generic.List[object]
     $script:LoadingSettings = $false
 
     # ---------- Fonctions internes ----------
@@ -218,9 +225,12 @@ function Show-MainWindow {
     }
 
     function Set-View([string]$Name) {
-        $views  = @{ dashboard = 'ViewDashboard'; updates = 'ViewUpdates'; all = 'ViewAll'; backups = 'ViewBackups'; history = 'ViewHistory'; settings = 'ViewSettings' }
-        $navs   = @{ dashboard = 'NavDashboard';  updates = 'NavUpdates';  all = 'NavAll';  backups = 'NavBackups';  history = 'NavHistory';  settings = 'NavSettings' }
-        $titles = @{ dashboard = 'Tableau de bord'; updates = 'Mises à jour'; all = 'Tous les pilotes'; backups = 'Sauvegardes'; history = 'Historique'; settings = 'Paramètres' }
+        $views  = @{ dashboard = 'ViewDashboard'; updates = 'ViewUpdates'; all = 'ViewAll'; backups = 'ViewBackups'; history = 'ViewHistory'; settings = 'ViewSettings'
+                     hardware = 'ViewHardware'; sites = 'ViewSites'; links = 'ViewLinks' }
+        $navs   = @{ dashboard = 'NavDashboard';  updates = 'NavUpdates';  all = 'NavAll';  backups = 'NavBackups';  history = 'NavHistory';  settings = 'NavSettings'
+                     hardware = 'NavHardware'; sites = 'NavSites'; links = 'NavLinks' }
+        $titles = @{ dashboard = 'Tableau de bord'; updates = 'Mises à jour'; all = 'Tous les pilotes'; backups = 'Sauvegardes'; history = 'Historique'; settings = 'Paramètres'
+                     hardware = 'Nouveau matériel'; sites = 'Sites'; links = 'Liens' }
         foreach ($k in @($views.Keys)) {
             $on = ($k -eq $Name)
             $ui[$views[$k]].Visibility = if ($on) { 'Visible' } else { 'Collapsed' }
@@ -232,6 +242,9 @@ function Show-MainWindow {
             'backups'  { Update-BackupsView }
             'history'  { Update-HistoryView }
             'settings' { Update-SettingsView }
+            'hardware' { Update-HardwareView }
+            'sites'    { Update-SitesView }
+            'links'    { Update-LinksView }
         }
     }
 
@@ -583,6 +596,199 @@ function Show-MainWindow {
         Update-Activity
     }
 
+    # ---------- Nouveau matériel ----------
+    function Update-HardwareBanner([object[]]$NewHardware) {
+        $new = @($NewHardware | Where-Object { $_ })
+        $script:NewHardware = $new
+        $ui.HardwareBadge.Visibility = if ($new.Count) { 'Visible' } else { 'Collapsed' }
+        $ui.HardwareBadgeText.Text   = [string]$new.Count
+        if ($new.Count -eq 0) { $ui.HardwareBanner.Visibility = 'Collapsed'; return }
+        $names = (@($new | Select-Object -First 2 | ForEach-Object { $_.Name }) -join ', ')
+        if ($new.Count -gt 2) { $names += '...' }
+        $ui.HardwareBannerText.Text = "Nouveau matériel détecté ($($new.Count)) : $names. Il ne sera pris en compte qu'après l'enregistrement d'une nouvelle configuration."
+        $ui.HardwareBanner.Visibility = 'Visible'
+    }
+
+    function New-DeviceLine([string]$Sign, [string]$Color, [object]$Device) {
+        $line = New-Object System.Windows.Controls.DockPanel
+        $line.Margin = New-Thickness 0 3 0 3
+        $mark = New-Text $Sign 15 $Color -Bold
+        $mark.Width = 22
+        [System.Windows.Controls.DockPanel]::SetDock($mark, 'Left')
+        [void]$line.Children.Add($mark)
+        $info = "$($Device.Name)"
+        if ($Device.Manufacturer) { $info += "  ·  $($Device.Manufacturer)" }
+        if ($Device.Class)        { $info += "  ·  $($Device.Class)" }
+        [void]$line.Children.Add((New-Text $info 13))
+        return $line
+    }
+
+    function Update-HardwareView {
+        $config = Get-CurrentHardwareProfile
+        if ($config) {
+            $sys = $config.System
+            $ui.HwConfigText.Text = 'Enregistrée le {0:dd/MM/yyyy} à {0:HH:mm} · {1} périphériques matériels suivis (sur {2} au total)' -f `
+                [datetime]$config.Date, @($config.Devices).Count, $config.AllDevices
+            $maker = $sys.Board.Manufacturer -replace '\s+Technology Co\., Ltd\.?', ''
+            $ui.HwSystemText.Text = "$($sys.OS)`nProcesseur : $($sys.Processor)`nCarte mère : $maker $($sys.Board.Product)`n" +
+                "Carte graphique : $((@($sys.Gpus) -join ', '))`nMémoire : $($sys.RamGB) Go"
+        } else {
+            $ui.HwConfigText.Text = 'Aucune configuration enregistrée.'
+            $ui.HwSystemText.Text = ''
+        }
+
+        # Résultat de la dernière détection
+        $ui.HwResultPanel.Children.Clear()
+        if (-not $script:HwScan) {
+            $hint = New-Text 'Clique sur « Détecter le nouveau matériel » pour comparer ton PC à cette configuration.' 13 'Muted'
+            [void]$ui.HwResultPanel.Children.Add($hint)
+        } else {
+            $card = New-Object System.Windows.Controls.Border
+            $card.Style = $window.FindResource('Card')
+            $stack = New-Object System.Windows.Controls.StackPanel
+            $added = @($script:HwDiff.Added); $removed = @($script:HwDiff.Removed)
+            if ($added.Count -eq 0 -and $removed.Count -eq 0) {
+                [void]$stack.Children.Add((New-Text '✓ Aucun changement : ton matériel correspond à la configuration enregistrée.' 13.5 '#16A34A' -SemiBold))
+            } else {
+                if ($added.Count) {
+                    [void]$stack.Children.Add((New-Text "Matériel ajouté ($($added.Count))" 14 -SemiBold))
+                    foreach ($d in $added) { [void]$stack.Children.Add((New-DeviceLine '+' '#16A34A' $d)) }
+                }
+                if ($removed.Count) {
+                    $t = New-Text "Matériel retiré ($($removed.Count))" 14 -SemiBold
+                    $t.Margin = New-Thickness 0 10 0 0
+                    [void]$stack.Children.Add($t)
+                    foreach ($d in $removed) { [void]$stack.Children.Add((New-DeviceLine '−' '#DC2626' $d)) }
+                }
+                $note = New-Text 'Clique sur « Enregistrer comme nouvelle configuration » pour que Driver prenne ces changements en compte.' 12.5 'Muted'
+                $note.Margin = New-Thickness 0 10 0 0
+                [void]$stack.Children.Add($note)
+            }
+            $card.Child = $stack
+            [void]$ui.HwResultPanel.Children.Add($card)
+        }
+
+        # Configurations enregistrées (fichiers JSON + CSV)
+        $ui.HwHistoryPanel.Children.Clear()
+        foreach ($p in @(Get-HardwareProfileList)) {
+            $grid = New-Columns @('*', 'Auto')
+            $grid.Margin = New-Thickness 0 2 0 2
+            $t = New-Text ('{0:dd/MM/yyyy à HH:mm} · {1} périphériques' -f $p.Date, $p.Count) 13
+            $t.VerticalAlignment = 'Center'
+            Add-ToGrid $grid $t 0
+            $open = New-Button -Text 'Ouvrir la liste (CSV)' -Style 'BtnLink' -Tag $p.Csv -Window $window
+            $open.Add_Click({ param($s, $e); if (Test-Path $s.Tag) { Start-Process $s.Tag } })
+            Add-ToGrid $grid $open 1
+            [void]$ui.HwHistoryPanel.Children.Add($grid)
+        }
+    }
+
+    # ---------- Sites et liens ----------
+    function Get-LinkKind([string]$Category) {
+        switch -Regex ($Category) {
+            'graphique' { 'gpu' } 'Audio' { 'audio' } 'Réseau' { 'net' } 'Bluetooth' { 'bt' }
+            'mère|Processeur|chipset' { 'chipset' } default { 'other' }
+        }
+    }
+
+    function Update-SitesView {
+        $ui.SitesPanel.Children.Clear()
+        $links = @(Get-AppLinks)
+        if ($links.Count -eq 0) {
+            [void]$ui.SitesPanel.Children.Add((New-Text 'Aucun lien. Ajoute-en dans « Liens ».' 13 'Muted'))
+            return
+        }
+        foreach ($l in $links) {
+            $row = New-Object System.Windows.Controls.Border
+            $row.Style   = $window.FindResource('Card')
+            $row.Margin  = New-Thickness 0 0 0 8
+            $row.Padding = New-Thickness 16 11 14 11
+            $grid = New-Columns @('Auto', '*', 'Auto', 'Auto')
+            $icon = New-IconBadge (Get-LinkKind $l.Category) 34
+            $icon.Margin = New-Thickness 0 0 14 0
+            Add-ToGrid $grid $icon 0
+            $info = New-Object System.Windows.Controls.StackPanel
+            $info.VerticalAlignment = 'Center'
+            [void]$info.Children.Add((New-Text $l.Name 14 -SemiBold))
+            [void]$info.Children.Add((New-Text $l.Url 12 'Muted'))
+            Add-ToGrid $grid $info 1
+            $tag = New-Object System.Windows.Controls.Border
+            $tag.CornerRadius = New-Object System.Windows.CornerRadius(10)
+            $tag.Padding = New-Thickness 9 2 9 2
+            $tag.Margin  = New-Thickness 12 0 12 0
+            $tag.VerticalAlignment = 'Center'
+            $tag.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, 'ChipBrush')
+            $tag.Child = New-Text $l.Category 11.5 'ChipText'
+            Add-ToGrid $grid $tag 2
+            $open = New-Button -Text 'Ouvrir' -Style 'BtnPrimary' -Tag $l.Url -Window $window
+            $open.Padding = New-Thickness 14 6 14 6
+            $open.Add_Click({
+                param($s, $e)
+                Write-Log "Ouverture du site : $($s.Tag)"
+                Start-Process $s.Tag
+            })
+            Add-ToGrid $grid $open 3
+            $row.Child = $grid
+            [void]$ui.SitesPanel.Children.Add($row)
+        }
+    }
+
+    function Add-LinkRow([object]$Link) {
+        $row = New-Object System.Windows.Controls.Border
+        $row.Style   = $window.FindResource('Card')
+        $row.Margin  = New-Thickness 0 0 0 6
+        $row.Padding = New-Thickness 16 8 14 8
+        $grid = New-Columns @('170', '*', '2*', '170')
+        $cat  = New-Object System.Windows.Controls.TextBox; $cat.Text  = [string]$Link.Category; $cat.Margin  = New-Thickness 0 0 8 0
+        $name = New-Object System.Windows.Controls.TextBox; $name.Text = [string]$Link.Name;     $name.Margin = New-Thickness 0 0 8 0
+        $url  = New-Object System.Windows.Controls.TextBox; $url.Text  = [string]$Link.Url;      $url.Margin  = New-Thickness 0 0 8 0
+        Add-ToGrid $grid $cat 0; Add-ToGrid $grid $name 1; Add-ToGrid $grid $url 2
+        $actions = New-Object System.Windows.Controls.StackPanel
+        $actions.Orientation = 'Horizontal'
+        $actions.HorizontalAlignment = 'Right'
+        $entry = @{ Row = $row; Category = $cat; Name = $name; Url = $url; Original = $Link }
+        $test = New-Button -Text 'Tester' -Style 'BtnLink' -Tag $url -Window $window
+        $test.Add_Click({ param($s, $e); if (Test-LinkUrl $s.Tag.Text) { Start-Process $s.Tag.Text } else { [void](Show-Message 'Adresse invalide : elle doit commencer par http:// ou https://' 'Liens' 'OK' 'Warning') } })
+        $del = New-Button -Text 'Supprimer' -Style 'BtnSmall' -Tag $entry -Window $window
+        $del.Margin = New-Thickness 6 0 0 0
+        $del.Add_Click({
+            param($s, $e)
+            [void]$ui.LinksPanel.Children.Remove($s.Tag.Row)
+            [void]$script:LinkRows.Remove($s.Tag)
+        })
+        [void]$actions.Children.Add($test); [void]$actions.Children.Add($del)
+        Add-ToGrid $grid $actions 3
+        $row.Child = $grid
+        [void]$ui.LinksPanel.Children.Add($row)
+        $script:LinkRows.Add($entry)
+        return $entry
+    }
+
+    function Update-LinksView {
+        $ui.LinksPanel.Children.Clear()
+        $script:LinkRows = New-Object System.Collections.Generic.List[object]
+        foreach ($l in @(Get-AppLinks)) { [void](Add-LinkRow $l) }
+    }
+
+    function Save-LinksFromView {
+        $links = New-Object System.Collections.Generic.List[object]
+        foreach ($r in $script:LinkRows) {
+            $cat = $r.Category.Text.Trim(); $name = $r.Name.Text.Trim(); $url = $r.Url.Text.Trim()
+            if (-not $name -and -not $url) { continue }               # ligne vide : ignorée
+            if (-not $name) { [void](Show-Message "Un lien n'a pas de nom ($url)." 'Liens' 'OK' 'Warning'); return }
+            if (-not (Test-LinkUrl $url)) { [void](Show-Message "Adresse invalide pour « $name » : elle doit commencer par http:// ou https://" 'Liens' 'OK' 'Warning'); return }
+            if (-not $cat) { $cat = 'Autre' }
+            $o = $r.Original
+            # Lien automatique non modifié : reste automatique. Sinon il devient manuel.
+            $auto = [bool]($o -and $o.Auto -and $o.Category -eq $cat -and $o.Name -eq $name -and $o.Url -eq $url)
+            $links.Add((New-AppLink $cat $name $url $auto))
+        }
+        Save-AppLinks -Links $links.ToArray()
+        Write-Log "Liens enregistrés : $($links.Count)"
+        $ui.StatusText.Text = "Liens enregistrés ($($links.Count))."
+        Update-LinksView
+    }
+
     # ---------- Actions ----------
     function Start-Search {
         if ($script:CurrentJob) { return }
@@ -592,9 +798,12 @@ function Show-MainWindow {
             . (Join-Path $root 'src\Loader.ps1')
             Initialize-AppFolder
             $inv = @(Get-DeviceInventory)
-            $upd = @(Find-DriverUpdate -Inventory $inv)
+            # Recherche basée sur la configuration enregistrée : le nouveau matériel est mis de côté
+            $w   = Get-WatchedInventory -Inventory $inv
+            $upd = @(Find-DriverUpdate -Inventory $w.Inventory -ExcludeHardwareId @($w.NewHardware | ForEach-Object { $_.HardwareId }))
+            $new = @($w.NewHardware | Select-Object Name, Manufacturer, Class, HardwareId)
             # JSON : les listes imbriquées survivent au passage entre processus
-            [pscustomobject]@{ Updates = $upd; Inventory = $inv } | ConvertTo-Json -Depth 4 -Compress
+            [pscustomobject]@{ Updates = $upd; Inventory = $inv; NewHardware = $new } | ConvertTo-Json -Depth 4 -Compress
         }
     }
 
@@ -803,6 +1012,7 @@ function Show-MainWindow {
                     $script:Inventory  = @($data.Inventory | Where-Object { $_ })
                     $script:LastSearch = Get-Date
                     Update-All
+                    Update-HardwareBanner @($data.NewHardware)
                     Set-Busy $false (Get-StatusLine)
                 } else {
                     Set-Busy $false 'L''analyse a échoué : consulte les journaux.'
@@ -863,10 +1073,51 @@ function Show-MainWindow {
     $ui.NavHistory.Add_Click({ Set-View 'history' })
     $ui.NavSettings.Add_Click({ Set-View 'settings' })
     $ui.NavPackage.Add_Click({ Select-Package })
-    $ui.NavBoard.Add_Click({
-        $url = Get-MotherboardSupportUrl -Board $script:Board
-        Write-Log "Ouverture de la page support carte mère : $url"
-        Start-Process $url
+    $ui.NavHardware.Add_Click({ Set-View 'hardware' })
+    $ui.NavSites.Add_Click({ Set-View 'sites' })
+    $ui.NavLinks.Add_Click({ Set-View 'links' })
+    $ui.BtnHardwareBanner.Add_Click({ Set-View 'hardware' })
+    $ui.BtnEditLinks.Add_Click({ Set-View 'links' })
+
+    $ui.BtnHwScan.Add_Click({
+        $window.Cursor = [System.Windows.Input.Cursors]::Wait
+        try {
+            $ui.StatusText.Text = 'Analyse du matériel...'
+            $script:HwScan = Get-HardwareSnapshot
+            $script:HwDiff = Compare-HardwareProfile -Config (Get-CurrentHardwareProfile) -CurrentDevices @($script:HwScan.Devices)
+            Write-Log ("Détection du matériel : {0} ajouté(s), {1} retiré(s)" -f @($script:HwDiff.Added).Count, @($script:HwDiff.Removed).Count)
+            $ui.BtnHwSave.IsEnabled = $true
+            Update-HardwareView
+            $ui.StatusText.Text = Get-StatusLine
+        } catch {
+            [void](Show-Message "Analyse du matériel impossible : $($_.Exception.Message)" 'Nouveau matériel' 'OK' 'Error')
+        } finally { $window.Cursor = $null }
+    })
+    $ui.BtnHwSave.Add_Click({
+        if (-not $script:HwScan) { return }
+        [void](Save-HardwareProfile -Snapshot $script:HwScan)
+        [void](Update-AutoLinks -Config (Get-CurrentHardwareProfile))   # liens des nouveaux composants
+        $script:HwScan = $null; $script:HwDiff = $null
+        $ui.BtnHwSave.IsEnabled = $false
+        Update-HardwareBanner @()
+        Update-HardwareView
+        if ((Show-Message "Nouvelle configuration enregistrée.`r`n`r`nLancer une analyse pour chercher les pilotes du nouveau matériel ?" 'Nouveau matériel' 'YesNo' 'Question') -eq 'Yes') {
+            Set-View 'dashboard'
+            Start-Search
+        }
+    })
+    $ui.BtnHwFolder.Add_Click({ Start-Process explorer.exe -ArgumentList $script:ProfileDir })
+
+    $ui.BtnLinkAdd.Add_Click({
+        $entry = Add-LinkRow (New-AppLink 'Autre' '' 'https://' $false)
+        [void]$entry.Name.Focus()
+    })
+    $ui.BtnLinksSave.Add_Click({ Save-LinksFromView })
+    $ui.BtnLinksReset.Add_Click({
+        if ((Show-Message "Recalculer les liens automatiques à partir de la configuration matérielle ?`r`n`r`nLes liens que tu as modifiés ou ajoutés à la main sont conservés." 'Liens' 'YesNo' 'Question') -eq 'Yes') {
+            [void](Update-AutoLinks)
+            Update-LinksView
+        }
     })
     $ui.NavLogs.Add_Click({ Start-Process explorer.exe -ArgumentList $script:LogDir })
     $ui.BtnSearch.Add_Click({ Start-Search })
@@ -984,6 +1235,14 @@ function Show-MainWindow {
         else {
             Update-All
             Set-Busy $false (Get-StatusLine)
+        }
+        if ($InitialResults) { Update-HardwareBanner @((Get-WatchedInventory -Inventory $script:Inventory).NewHardware) }
+        if ($script:ProfileCreated) {
+            $config = Get-CurrentHardwareProfile
+            $welcome = ("Bienvenue dans Driver !`r`n`r`nPremier lancement : ton matériel a été analysé ({0} périphériques) et enregistré comme configuration de référence. " +
+                "Toutes les recherches se basent dessus.`r`n`r`nSi tu ajoutes ou changes du matériel, utilise « Nouveau matériel » dans le menu.") -f @($config.Devices).Count
+            [void](Show-Message $welcome 'Driver')
+            $script:ProfileCreated = $false
         }
         if ($script:Settings.AutoUpdateCheck) { Show-AppUpdateBanner (Test-AppUpdate) }
     })

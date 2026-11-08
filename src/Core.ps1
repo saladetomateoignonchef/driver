@@ -4,8 +4,14 @@
 
 function Find-DriverUpdate {
     <# Interroge tous les fournisseurs et renvoie la liste des mises à jour disponibles. #>
-    param([object[]]$Inventory)
-    $inventory = if ($Inventory) { @($Inventory) } else { @(Get-DeviceInventory) }
+    param([object[]]$Inventory, [string[]]$ExcludeHardwareId)
+    if (-not $Inventory) {
+        # Recherche basée sur la configuration enregistrée (le nouveau matériel non validé est exclu)
+        $watched = Get-WatchedInventory
+        $Inventory = $watched.Inventory
+        $ExcludeHardwareId = @($watched.NewHardware | ForEach-Object { $_.HardwareId })
+    }
+    $inventory = @($Inventory)
     Write-Log "Inventaire : $($inventory.Count) périphérique(s) avec pilote"
 
     $results    = New-Object System.Collections.Generic.List[object]
@@ -28,6 +34,8 @@ function Find-DriverUpdate {
             # Si le site NVIDIA a répondu, on ignore le pilote graphique NVIDIA de
             # Windows Update (souvent plus ancien) pour éviter un doublon.
             if ($nvidiaDone -and $c.DriverClass -eq 'Display' -and $c.Manufacturer -match 'NVIDIA') { continue }
+            # Matériel ajouté mais pas encore enregistré dans la configuration : ignoré
+            if ($c.HardwareId -and @($ExcludeHardwareId | Where-Object { $_ -like "$($c.HardwareId)*" }).Count) { continue }
             $results.Add($c)
         }
     } catch {

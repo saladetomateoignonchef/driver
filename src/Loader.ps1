@@ -9,3 +9,5 @@
 . (Join-Path $PSScriptRoot 'History.ps1')
 . (Join-Path $PSScriptRoot 'SelfUpdate.ps1')
 . (Join-Path $PSScriptRoot 'Notify.ps1')
+. (Join-Path $PSScriptRoot 'Profile.ps1')
+. (Join-Path $PSScriptRoot 'Links.ps1')

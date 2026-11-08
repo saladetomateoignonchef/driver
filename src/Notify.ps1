@@ -8,7 +8,8 @@
 
 function Show-UpdateNotification {
     <# Renvoie $true si l'utilisateur veut ouvrir Driver. #>
-    param([int]$Count, [string]$Summary)
+    param([int]$Count, [string]$Summary, [string]$Title)
+    if (-not $Title) { $Title = "$Count mise(s) à jour de pilotes disponible(s)" }
 
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
@@ -17,7 +18,7 @@ function Show-UpdateNotification {
     $icon = New-Object System.Windows.Forms.NotifyIcon
     $iconFile = Join-Path $script:AppRoot 'src\driver.ico'
     $icon.Icon = if (Test-Path $iconFile) { New-Object System.Drawing.Icon($iconFile) } else { [System.Drawing.SystemIcons]::Information }
-    $icon.Text = "Driver : $Count mise(s) à jour disponible(s)"
+    $icon.Text = 'Driver : ' + $(if ($Title.Length -gt 50) { $Title.Substring(0, 50) } else { $Title })
 
     $menu = New-Object System.Windows.Forms.ContextMenuStrip
     $itemOpen  = $menu.Items.Add('Ouvrir Driver')
@@ -38,7 +39,7 @@ function Show-UpdateNotification {
     $timer.Start()
 
     $icon.Visible = $true
-    $icon.BalloonTipTitle = "$Count mise(s) à jour de pilotes disponible(s)"
+    $icon.BalloonTipTitle = $Title
     $icon.BalloonTipText  = "$Summary`nClique ici pour ouvrir Driver."
     $icon.BalloonTipIcon  = 'Info'
     $icon.ShowBalloonTip(15000)

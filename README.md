@@ -9,6 +9,10 @@ de mon PC et me propose de les mettre à jour. **Rien n'est installé sans ma va
 
 | | |
 |---|---|
+| **Configuration matérielle** | Au premier lancement, tout le matériel est analysé et enregistré (JSON + CSV) ; les recherches se basent dessus |
+| **Nouveau matériel** | Détecte le matériel ajouté ou retiré et enregistre une nouvelle configuration (10 dernières gardées) |
+| **Sites** | Pages de pilotes de chaque composant (carte mère, carte graphique, processeur, audio, réseau, périphériques) |
+| **Liens** | Tous les liens sont modifiables : si un site est bloqué ou change d'adresse, on corrige le lien |
 | **Tableau de bord** | Une carte par composant (carte graphique, audio, réseau, chipset, Bluetooth, stockage) avec son état |
 | **Mises à jour** | NVIDIA (Game Ready ou Studio) + Windows Update, installation après validation, bouton « Ignorer » |
 | **Paquets manuels** | Glisser-déposer d'un ZIP constructeur : analyse des `.inf`, comparaison des versions, diagnostic clair |
@@ -81,6 +85,8 @@ driver/
 │   ├── History.ps1            # historique + rapport HTML
 │   ├── SelfUpdate.ps1         # mise à jour de Driver depuis les Releases GitHub
 │   ├── Notify.ps1             # notification au démarrage
+│   ├── Profile.ps1            # configuration matérielle (premier lancement, nouveau matériel)
+│   ├── Links.ps1              # sites de support, liens modifiables
 │   ├── Loader.ps1             # charge tous les modules
 │   └── Providers/
 │       ├── Nvidia.ps1         # fournisseur NVIDIA

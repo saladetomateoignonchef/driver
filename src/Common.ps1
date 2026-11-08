@@ -3,7 +3,7 @@
 # =============================================================================
 
 $script:AppName      = 'DriverUpdater'
-$script:AppVersion   = '2.0.2'                              # doit correspondre au tag GitHub (v2.0.0)
+$script:AppVersion   = '2.1.0'                              # doit correspondre au tag GitHub (v2.0.0)
 $script:GitHubRepo   = 'saladetomateoignonchef/driver'
 $script:DataDir      = Join-Path $env:ProgramData 'DriverUpdater'
 $script:LogDir       = Join-Path $script:DataDir 'logs'

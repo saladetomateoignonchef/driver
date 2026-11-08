@@ -191,6 +191,17 @@
       </Setter>
     </Style>
 
+    <!-- ===== Zones de texte (page Liens) ===== -->
+    <Style TargetType="TextBox">
+      <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BtnLineBrush}"/>
+      <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="7,5"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+
     <!-- ===== Tableaux ===== -->
     <Style x:Key="CellText" TargetType="TextBlock">
       <Setter Property="Margin" Value="14,0"/>
@@ -270,8 +281,17 @@
         <Button x:Name="NavBackups" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Sauvegardes"/></Button>
         <Button x:Name="NavHistory" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Historique"/></Button>
         <Border DockPanel.Dock="Top" Height="1" Background="#21405C" Margin="10,10,10,13"/>
+        <Button x:Name="NavHardware" DockPanel.Dock="Top" Style="{StaticResource Nav}">
+          <Grid>
+            <TextBlock Text="Nouveau matériel"/>
+            <Border x:Name="HardwareBadge" HorizontalAlignment="Right" Background="#FBBF24" CornerRadius="9" Padding="7,0" Visibility="Collapsed">
+              <TextBlock x:Name="HardwareBadgeText" Text="0" Foreground="#0B1F33" FontWeight="SemiBold" FontSize="11.5"/>
+            </Border>
+          </Grid>
+        </Button>
+        <Button x:Name="NavSites" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Sites"/></Button>
+        <Button x:Name="NavLinks" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Liens"/></Button>
         <Button x:Name="NavPackage" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Installer un paquet"/></Button>
-        <Button x:Name="NavBoard" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Site de la carte mère"/></Button>
         <Button x:Name="NavLogs" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Journaux"/></Button>
         <Button x:Name="NavSettings" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Paramètres"/></Button>
 
@@ -293,7 +313,14 @@
         <RowDefinition Height="*"/>
       </Grid.RowDefinitions>
 
-      <!-- Bandeau : nouvelle version de Driver -->
+      <!-- Bandeaux : nouvelle version de Driver / nouveau matériel -->
+      <StackPanel>
+      <Border x:Name="HardwareBanner" Background="#FEF3C7" CornerRadius="10" Padding="16,10" Margin="0,0,0,14" Visibility="Collapsed">
+        <DockPanel>
+          <Button x:Name="BtnHardwareBanner" DockPanel.Dock="Right" Content="Voir le nouveau matériel" Style="{StaticResource BtnBase}" Padding="14,6"/>
+          <TextBlock x:Name="HardwareBannerText" Foreground="#78350F" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0"/>
+        </DockPanel>
+      </Border>
       <Border x:Name="AppUpdateBanner" Background="{DynamicResource BannerBrush}" CornerRadius="10" Padding="16,10" Margin="0,0,0,14" Visibility="Collapsed">
         <DockPanel>
           <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
@@ -303,6 +330,7 @@
           <TextBlock x:Name="AppUpdateText" Foreground="{DynamicResource BannerTextBrush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
         </DockPanel>
       </Border>
+      </StackPanel>
 
       <!-- En-tête -->
       <Grid Grid.Row="1">
@@ -443,6 +471,82 @@
           </Border>
           <TextBlock x:Name="HistoryEmpty" Grid.Row="1" Style="{StaticResource Muted}" FontSize="14" HorizontalAlignment="Center"
                      VerticalAlignment="Center" Visibility="Collapsed" Text="Aucune installation enregistrée pour l'instant."/>
+        </Grid>
+
+        <!-- ===== Vue : nouveau matériel ===== -->
+        <Grid x:Name="ViewHardware" Visibility="Collapsed">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <Border Style="{StaticResource Card}">
+            <StackPanel>
+              <TextBlock Text="Configuration enregistrée" Style="{StaticResource SectionTitle}"/>
+              <TextBlock x:Name="HwConfigText" Style="{StaticResource Muted}" Margin="0,2,0,8"/>
+              <TextBlock x:Name="HwSystemText" LineHeight="20" TextWrapping="Wrap"/>
+            </StackPanel>
+          </Border>
+          <WrapPanel Grid.Row="1" Margin="0,12,0,12">
+            <Button x:Name="BtnHwScan" Content="Détecter le nouveau matériel" Style="{StaticResource BtnPrimary}" Margin="0,0,8,0"/>
+            <Button x:Name="BtnHwSave" Content="Enregistrer comme nouvelle configuration" Style="{StaticResource BtnBase}" IsEnabled="False" Margin="0,0,8,0"/>
+            <Button x:Name="BtnHwFolder" Content="Ouvrir le dossier des configurations" Style="{StaticResource BtnLink}" VerticalAlignment="Center"/>
+          </WrapPanel>
+          <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+              <StackPanel x:Name="HwResultPanel"/>
+              <TextBlock Text="Configurations enregistrées" Style="{StaticResource SectionTitle}" Margin="0,16,0,8"/>
+              <StackPanel x:Name="HwHistoryPanel"/>
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
+
+        <!-- ===== Vue : sites ===== -->
+        <Grid x:Name="ViewSites" Visibility="Collapsed">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <DockPanel Margin="0,0,0,12">
+            <Button x:Name="BtnEditLinks" DockPanel.Dock="Right" Content="Modifier les liens" Style="{StaticResource BtnSmall}"/>
+            <TextBlock Style="{StaticResource Muted}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0"
+                       Text="Les pages de pilotes de tes composants. Si un site est bloqué ou a changé d'adresse, modifie le lien dans « Liens »."/>
+          </DockPanel>
+          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="SitesPanel"/>
+          </ScrollViewer>
+        </Grid>
+
+        <!-- ===== Vue : liens (modifiables) ===== -->
+        <Grid x:Name="ViewLinks" Visibility="Collapsed">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <DockPanel Margin="0,0,0,12">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+              <Button x:Name="BtnLinksReset" Content="Rétablir les liens automatiques" Style="{StaticResource BtnLink}" Margin="0,0,8,0"/>
+              <Button x:Name="BtnLinkAdd" Content="Ajouter un lien" Style="{StaticResource BtnSmall}" Margin="0,0,8,0"/>
+              <Button x:Name="BtnLinksSave" Content="Enregistrer" Style="{StaticResource BtnPrimary}" Padding="14,6"/>
+            </StackPanel>
+            <TextBlock Style="{StaticResource Muted}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0"
+                       Text="Modifie, ajoute ou supprime des liens, puis clique sur « Enregistrer ». Un lien modifié à la main n'est plus jamais remplacé automatiquement."/>
+          </DockPanel>
+          <Grid Grid.Row="1" Margin="17,0,14,6">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="170"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="2*"/>
+              <ColumnDefinition Width="170"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="CATÉGORIE" Style="{StaticResource Muted}" FontSize="11" FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="1" Text="NOM" Style="{StaticResource Muted}" FontSize="11" FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="2" Text="ADRESSE" Style="{StaticResource Muted}" FontSize="11" FontWeight="SemiBold"/>
+          </Grid>
+          <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="LinksPanel"/>
+          </ScrollViewer>
         </Grid>
 
         <!-- ===== Vue : paramètres ===== -->
