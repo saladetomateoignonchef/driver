@@ -17,6 +17,11 @@ function Initialize-AppFolder {
             New-Item -ItemType Directory -Path $dir -Force | Out-Null
         }
     }
+    # Les fichiers téléchargés y sont exécutés en administrateur : un utilisateur
+    # standard ne doit pas pouvoir y déposer ou modifier un fichier entre-temps.
+    if (Test-IsAdmin) {
+        & icacls.exe $script:DataDir /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' /T /Q 2>&1 | Out-Null
+    }
 }
 
 function Write-Log {

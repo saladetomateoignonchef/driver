@@ -8,6 +8,7 @@
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+. (Join-Path $PSScriptRoot 'DropTarget.ps1')
 
 function Show-MainWindow {
     param(
@@ -23,7 +24,7 @@ function Show-MainWindow {
 
     # ---------- Fenêtre ----------
     $form = New-Object System.Windows.Forms.Form
-    $form.Text          = 'Driver - Mise à jour des pilotes'
+    $form.Text          = 'Driver - Mise à jour des pilotes  (glisse ici un ZIP de pilotes pour l''installer)'
     $form.Size          = New-Object System.Drawing.Size(1080, 580)
     $form.MinimumSize   = New-Object System.Drawing.Size(720, 400)
     $form.StartPosition = 'CenterScreen'
@@ -58,6 +59,7 @@ function Show-MainWindow {
 
     $btnSearch  = New-Object System.Windows.Forms.Button -Property @{ Text = 'Rechercher'; Width = 110; Height = 30 }
     $btnInstall = New-Object System.Windows.Forms.Button -Property @{ Text = 'Installer la sélection'; Width = 160; Height = 30; Enabled = $false }
+    $btnPackage = New-Object System.Windows.Forms.Button -Property @{ Text = 'Installer un paquet…'; Width = 140; Height = 30 }
     $btnBoard   = New-Object System.Windows.Forms.Button -Property @{ Text = 'Site carte mère'; Width = 120; Height = 30 }
     $btnLogs    = New-Object System.Windows.Forms.Button -Property @{ Text = 'Journaux'; Width = 90; Height = 30 }
     $btnClose   = New-Object System.Windows.Forms.Button -Property @{ Text = 'Fermer'; Width = 90; Height = 30 }
@@ -65,7 +67,7 @@ function Show-MainWindow {
     $chkRestore = New-Object System.Windows.Forms.CheckBox -Property @{ Text = 'Créer un point de restauration'; Checked = $true; AutoSize = $true; Margin = (New-Object System.Windows.Forms.Padding(12, 8, 12, 0)) }
     $progress   = New-Object System.Windows.Forms.ProgressBar -Property @{ Width = 150; Height = 20; Style = 'Marquee'; Visible = $false; Margin = (New-Object System.Windows.Forms.Padding(6, 6, 0, 0)) }
 
-    $panel.Controls.AddRange(@($btnSearch, $btnInstall, $chkRestore, $chkAll, $btnBoard, $btnLogs, $btnClose, $progress))
+    $panel.Controls.AddRange(@($btnSearch, $btnInstall, $btnPackage, $chkRestore, $chkAll, $btnBoard, $btnLogs, $btnClose, $progress))
     $form.Controls.Add($lblStatus)
     $form.Controls.Add($panel)
     $form.Controls.Add($list)
@@ -141,6 +143,72 @@ function Show-MainWindow {
         $timer.Start()
     }
 
+    function Start-PackageAnalysis([string]$Path) {
+        if ($script:CurrentJob) {
+            [void][System.Windows.Forms.MessageBox]::Show('Une opération est déjà en cours, patiente un peu.', 'Driver', 'OK', 'Information')
+            return
+        }
+        Write-Log "Paquet déposé : $Path"
+        Set-Busy $true ("Analyse du paquet « {0} »..." -f (Split-Path $Path -Leaf))
+        $script:JobKind    = 'analyze'
+        $script:CurrentJob = Start-Job -ArgumentList $script:AppRoot, $Path -ScriptBlock {
+            param($root, $p)
+            . (Join-Path $root 'src\Loader.ps1')
+            Initialize-AppFolder
+            # JSON : les objets imbriqués survivent au passage entre processus
+            Get-DriverPackageAnalysis -Path $p | ConvertTo-Json -Depth 5
+        }
+        $timer.Start()
+    }
+
+    function Confirm-PackageInstall([object]$Analysis, [string]$Json) {
+        $drivers = @($Analysis.Drivers | Where-Object { $_ })
+        $newer   = @($drivers | Where-Object { $_.IsNewer })
+        $older   = @($drivers | Where-Object { -not $_.IsNewer })
+        $text    = ''
+        if ($older.Count -gt 0) {
+            $text += "Déjà à jour (ignorés) :`r`n" + (($older | ForEach-Object { "- $($_.Device) : $($_.CurrentVersion) (paquet : $($_.PackageVersion))" }) -join "`r`n") + "`r`n`r`n"
+        }
+
+        if ($newer.Count -gt 0) {
+            $text = "Pilotes plus récents trouvés pour ton matériel :`r`n" +
+                (($newer | ForEach-Object { "- $($_.Device) : $($_.CurrentVersion) -> $($_.PackageVersion)" }) -join "`r`n") +
+                "`r`n`r`n" + $text + 'Installer maintenant ?'
+        }
+        elseif ($Analysis.Setup -and $Analysis.SetupSigned) {
+            $text += "Aucun pilote plus récent à installer directement.`r`n`r`n" +
+                "Lancer l'installateur « $(Split-Path $Analysis.Setup -Leaf) » (signé par $($Analysis.SetupSigner)) ?`r`n" +
+                'Tu devras suivre ses étapes.'
+        }
+        elseif ($Analysis.Setup) {
+            Set-Busy $false 'Paquet refusé.'
+            [void][System.Windows.Forms.MessageBox]::Show("L'installateur « $(Split-Path $Analysis.Setup -Leaf) » n'a pas de signature numérique valide : il est refusé par sécurité.", 'Driver', 'OK', 'Warning')
+            return
+        }
+        else {
+            Set-Busy $false 'Rien à installer dans ce paquet.'
+            $msg = if ($older.Count -gt 0) { $text + 'Tous les pilotes de ce paquet sont déjà à jour.' } else { "Ce paquet ne contient aucun pilote pour le matériel de ce PC." }
+            [void][System.Windows.Forms.MessageBox]::Show($msg, 'Driver', 'OK', 'Information')
+            return
+        }
+
+        if ([System.Windows.Forms.MessageBox]::Show($text, 'Installer le paquet', 'YesNo', 'Question') -ne 'Yes') {
+            Set-Busy $false 'Installation du paquet annulée.'
+            return
+        }
+
+        Write-Log "Paquet manuel : installation validée par l'utilisateur ($($Analysis.Source))"
+        Set-Busy $true 'Installation du paquet en cours... (l''écran ou le son peuvent couper quelques secondes)'
+        $script:JobKind    = 'install'
+        $script:CurrentJob = Start-Job -ArgumentList $script:AppRoot, $Json, $chkRestore.Checked -ScriptBlock {
+            param($root, $json, $restorePoint)
+            . (Join-Path $root 'src\Loader.ps1')
+            Initialize-AppFolder
+            Install-DriverPackage -Analysis ($json | ConvertFrom-Json) -CreateRestorePoint:$restorePoint
+        }
+        $timer.Start()
+    }
+
     # ---------- Timer de surveillance du job ----------
     $timer = New-Object System.Windows.Forms.Timer
     $timer.Interval = 500
@@ -149,7 +217,10 @@ function Show-MainWindow {
         if ([string]$script:CurrentJob.State -notin @('Completed', 'Failed', 'Stopped')) { return }
 
         $timer.Stop()
-        $output = @(Receive-Job -Job $script:CurrentJob -ErrorAction SilentlyContinue)
+        $jobErrors = $null
+        $output = @(Receive-Job -Job $script:CurrentJob -ErrorAction SilentlyContinue -ErrorVariable jobErrors)
+        $errText = (@($jobErrors) | Where-Object { $_ } | ForEach-Object { $_.ToString() }) -join "`r`n"
+        if ($errText) { Write-Log "Erreur dans la tâche de fond ($($script:JobKind)) : $errText" 'ERREUR' }
         $failed = ($script:CurrentJob.State -ne 'Completed')
         Remove-Job -Job $script:CurrentJob -Force
         $script:CurrentJob = $null
@@ -158,15 +229,25 @@ function Show-MainWindow {
             Update-ResultList $output
             if ($failed) { $lblStatus.Text = 'La recherche a échoué : consulte les journaux.' }
         }
+        elseif ($script:JobKind -eq 'analyze') {
+            $json = ($output | Where-Object { $_ -is [string] }) -join "`n"
+            if ($failed -or -not $json) {
+                Set-Busy $false 'Analyse du paquet impossible.'
+                [void][System.Windows.Forms.MessageBox]::Show("Impossible d'analyser ce paquet.`r`n`r`n$errText", 'Driver', 'OK', 'Error')
+            } else {
+                Confirm-PackageInstall -Analysis ($json | ConvertFrom-Json) -Json $json
+            }
+        }
         elseif ($script:JobKind -eq 'install') {
             $ok     = @($output | Where-Object { $_.Success }).Count
             $ko     = @($output | Where-Object { -not $_.Success })
             $reboot = @($output | Where-Object { $_.RebootRequired }).Count -gt 0
 
-            $msg = "$ok pilote(s) installé(s) avec succès."
-            if ($ko.Count -gt 0) {
-                $msg += "`r`n`r`nÉchecs :`r`n" + (($ko | ForEach-Object { "- $($_.Device) : $($_.Message)" }) -join "`r`n")
+            $msg = "$ok opération(s) réussie(s) sur $(@($output).Count)."
+            if (@($output).Count -gt 0) {
+                $msg += "`r`n`r`n" + (($output | ForEach-Object { "- $($_.Device) : $($_.Message)" }) -join "`r`n")
             }
+            if ($errText) { $msg += "`r`n`r`nErreur : $errText" }
             Set-Busy $false 'Installation terminée.'
 
             if ($reboot) {
@@ -181,6 +262,13 @@ function Show-MainWindow {
 
     # ---------- Événements des boutons ----------
     $btnSearch.Add_Click({ Start-Search })
+
+    $btnPackage.Add_Click({
+        $dlg = New-Object System.Windows.Forms.OpenFileDialog
+        $dlg.Title  = 'Choisir un paquet de pilotes'
+        $dlg.Filter = 'Paquets de pilotes (*.zip;*.exe)|*.zip;*.exe|Tous les fichiers (*.*)|*.*'
+        if ($dlg.ShowDialog($form) -eq 'OK') { Start-PackageAnalysis $dlg.FileName }
+    })
 
     # Bascule "Afficher tous les pilotes" (sans relancer de recherche)
     $chkAll.Add_CheckedChanged({
@@ -247,6 +335,18 @@ function Show-MainWindow {
 
     $form.Add_Shown({
         $form.Activate()
+        # Glisser-déposer : sur la liste et sur la fenêtre
+        try {
+            $script:DropTargets = @(
+                (New-Object ElevatedDropTarget -ArgumentList $list),
+                (New-Object ElevatedDropTarget -ArgumentList $form)
+            )
+            foreach ($dt in $script:DropTargets) {
+                $dt.add_FilesDropped({ param($s, $e) if ($e.Files.Count -gt 0) { Start-PackageAnalysis $e.Files[0] } })
+            }
+        } catch {
+            Write-Log "Glisser-déposer indisponible : $($_.Exception.Message)" 'WARN'
+        }
         if ($InitialResults) { Update-ResultList $InitialResults }
         elseif ($AutoSearch)  { Start-Search }
         else                  { Set-Busy $false 'Clique sur « Rechercher » pour vérifier tes pilotes.' }

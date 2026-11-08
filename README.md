@@ -31,6 +31,22 @@ de mon PC et me propose de les mettre à jour. **Rien n'est installé sans ma va
 | Sécurité | Vérification de la signature Authenticode (*NVIDIA Corporation*), point de restauration, journaux |
 | Démarrage | Tâche planifiée à l'ouverture de session (+2 min) : la fenêtre ne s'ouvre **que** s'il y a des mises à jour |
 
+## Installer un paquet téléchargé à la main (glisser-déposer)
+
+Pour les pilotes que l'appli ne peut pas vérifier seule (par exemple ceux de la carte mère Gigabyte,
+dont le site bloque les scripts) :
+
+1. bouton **Site carte mère** → télécharger le ZIP du pilote ;
+2. **glisser le ZIP dans la fenêtre** (ou bouton **Installer un paquet…**) ;
+3. l'appli extrait le ZIP, repère les `.inf` qui correspondent au matériel du PC, compare les versions
+   et demande confirmation ;
+4. installation avec `pnputil` (outil Windows, qui refuse les pilotes non signés).
+   S'il n'y a pas de `.inf` utilisable, le `setup.exe` du paquet est lancé, uniquement s'il est signé.
+
+> Une application administrateur ne reçoit normalement pas le glisser-déposer de l'Explorateur
+> (protection UIPI de Windows). `src/DropTarget.ps1` l'autorise explicitement avec
+> `ChangeWindowMessageFilterEx` pour les seuls messages de dépôt de fichiers.
+
 ## Structure du projet
 
 ```
@@ -43,6 +59,8 @@ driver/
 │   ├── Inventory.ps1          # inventaire matériel (WMI)
 │   ├── Core.ps1               # orchestration recherche / installation
 │   ├── Gui.ps1                # interface Windows Forms
+│   ├── DropTarget.ps1         # glisser-déposer dans une fenêtre administrateur
+│   ├── ManualPackage.ps1      # analyse et installation d'un ZIP de pilotes
 │   ├── Loader.ps1             # charge tous les modules
 │   └── Providers/
 │       ├── Nvidia.ps1         # fournisseur NVIDIA
