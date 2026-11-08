@@ -17,9 +17,19 @@ function Get-UpdateRepo {
 
 function Get-LatestAppRelease {
     $uri = "https://api.github.com/repos/$(Get-UpdateRepo)/releases/latest"
-    # -UserAgent (et non un en-tête « User-Agent ») : méthode prévue par Windows PowerShell 5.1
-    $rel = Invoke-RestMethod -Uri $uri -UseBasicParsing -TimeoutSec 10 -UserAgent $script:UserAgent `
-        -Headers @{ 'Accept' = 'application/vnd.github+json' }
+    # 3 tentatives : l'API GitHub répond parfois « 503 Server Unavailable » de façon passagère
+    $rel = $null
+    for ($i = 1; $i -le 3; $i++) {
+        try {
+            $rel = Invoke-RestMethod -Uri $uri -UseBasicParsing -TimeoutSec 10 -UserAgent $script:UserAgent `
+                -Headers @{ 'Accept' = 'application/vnd.github+json' }
+            break
+        } catch {
+            Write-Log "API GitHub : tentative $i/3 échouée ($($_.Exception.Message))" 'WARN'
+            if ($i -eq 3) { throw }
+            Start-Sleep -Seconds (2 * $i)
+        }
+    }
     $asset = @($rel.assets | Where-Object { $_.name -like '*.zip' }) | Select-Object -First 1
     [pscustomobject]@{
         Version  = ([string]$rel.tag_name).TrimStart('v', 'V')

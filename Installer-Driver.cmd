@@ -26,7 +26,16 @@ try {
     Write-Host '  Driver - installation' -ForegroundColor Cyan
     Write-Host '  ---------------------'
     Write-Host '  1/4 Recherche de la dernière version sur GitHub...'
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -UseBasicParsing -UserAgent 'Driver-Installer'
+    for ($i = 1; $i -le 4; $i++) {
+        try {
+            $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -UseBasicParsing -UserAgent 'Driver-Installer'
+            break
+        } catch {
+            if ($i -eq 4) { throw }
+            Write-Host "      GitHub ne répond pas, nouvelle tentative ($i/4)..." -ForegroundColor Yellow
+            Start-Sleep -Seconds (3 * $i)
+        }
+    }
     $asset = @($release.assets | Where-Object { $_.name -like '*.zip' }) | Select-Object -First 1
     if (-not $asset) { throw 'Aucun fichier ZIP dans la dernière version publiée.' }
     Write-Host "      Version $($release.tag_name)"
