@@ -26,9 +26,9 @@ $script:Themes = @{
         TextBrush = '#E6EDF3'; MutedBrush = '#93A4B5'; BtnLineBrush = '#34465A'; ChipBrush = '#223244'
         ChipTextBrush = '#CBD5E1'; DropLineBrush = '#45607A'; SelectedBrush = '#173A37'
         BannerBrush = '#134E4A'; BannerTextBrush = '#CCFBF1'
-        # Interrupteurs en thème sombre (couleurs adoucies : variante choisie dans les maquettes)
-        ToggleOnBrush = '#22C55E'; ToggleOffBrush = '#EF4444'; ToggleOnLineBrush = '#00000000'; ToggleOffLineBrush = '#00000000'
-        ToggleOnTextBrush = '#FFFFFF'; ToggleOffTextBrush = '#FFFFFF'; ToggleKnobOnBrush = '#FFFFFF'; ToggleKnobOffBrush = '#FFFFFF'
+        # Interrupteurs en thème sombre : style « Contour » (fond de la carte, bord + rond + texte colorés)
+        ToggleOnBrush = '#16212D'; ToggleOffBrush = '#16212D'; ToggleOnLineBrush = '#4ADE80'; ToggleOffLineBrush = '#F87171'
+        ToggleOnTextBrush = '#86EFAC'; ToggleOffTextBrush = '#FCA5A5'; ToggleKnobOnBrush = '#4ADE80'; ToggleKnobOffBrush = '#F87171'
     }
 }
 
