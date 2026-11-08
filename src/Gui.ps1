@@ -1,4 +1,4 @@
-# =============================================================================
+﻿# =============================================================================
 #  Gui.ps1 - Interface graphique "tableau de bord" (WPF)
 #
 #  La mise en page est décrite dans MainWindow.xaml ; ce fichier la charge,
