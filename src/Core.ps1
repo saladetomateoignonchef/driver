@@ -17,17 +17,26 @@ function Find-DriverUpdate {
     $results    = New-Object System.Collections.Generic.List[object]
     $nvidiaDone = $false
 
+    $settings = Get-AppSettings
+
     # 1) Fournisseur NVIDIA (prioritaire pour la carte graphique)
-    Set-TaskProgress -Stage 'Analyse : interrogation du site NVIDIA'
+    if (-not $settings.ProviderNvidia) {
+        Write-Log 'NVIDIA : fournisseur désactivé dans les paramètres'
+    } else {
+    Set-TaskProgress -Stage (T 'StageNvidia')
     try {
         foreach ($c in @(Get-NvidiaUpdate -Inventory $inventory)) { if ($c) { $results.Add($c) } }
         $nvidiaDone = $true
     } catch {
         Write-Log "NVIDIA : erreur lors de la recherche : $($_.Exception.Message)" 'ERREUR'
     }
+    }
 
-    # 2) Windows Update (filet de sécurité pour tout le reste)
-    Set-TaskProgress -Stage 'Analyse : recherche des pilotes sur Windows Update' -Detail 'peut prendre 1 à 2 minutes'
+    # 2) Windows Update (filet de sécurité pour tout le reste, dont AMD et Intel)
+    if (-not $settings.ProviderWindowsUpdate) {
+        Write-Log 'Windows Update : fournisseur désactivé dans les paramètres'
+    } else {
+    Set-TaskProgress -Stage (T 'StageWindowsUpdate') -Detail (T 'StageWindowsUpdateDetail')
     try {
         foreach ($c in @(Get-WindowsUpdateDriverUpdate -Inventory $inventory)) {
             if (-not $c) { continue }
@@ -40,6 +49,7 @@ function Find-DriverUpdate {
         }
     } catch {
         Write-Log "Windows Update : erreur lors de la recherche : $($_.Exception.Message)" 'ERREUR'
+    }
     }
 
     Write-Log "Recherche terminée : $($results.Count) mise(s) à jour disponible(s)"
@@ -82,7 +92,7 @@ function Install-DriverUpdate {
     )
 
     if ($CreateRestorePoint) {
-        Set-TaskProgress -Stage 'Création du point de restauration'
+        Set-TaskProgress -Stage (T 'StageRestorePoint')
         [void](New-DriverRestorePoint)
     }
     $inventory = @(Get-DeviceInventory)
@@ -105,7 +115,7 @@ function Install-DriverUpdate {
     }
 
     if ($wu.Count -gt 0) {
-        Set-TaskProgress -Stage "Windows Update : téléchargement et installation de $($wu.Count) pilote(s)"
+        Set-TaskProgress -Stage (T 'StageWuInstall' $wu.Count)
         try {
             foreach ($r in @(Install-WindowsUpdateDriver -UpdateId ($wu | ForEach-Object { $_.Key }))) {
                 Write-Log "Windows Update : $($r.Title) -> $($r.Message)"

@@ -8,8 +8,15 @@
 #  C:\Program Files\DriverUpdater.
 # =============================================================================
 
+function Get-UpdateRepo {
+    <# Dépôt GitHub source des mises à jour (Paramètres), au format propriétaire/projet. #>
+    $repo = [string](Get-AppSettings).UpdateRepo
+    if ($repo -notmatch '^[\w.-]+/[\w.-]+$') { $repo = $script:GitHubRepo }
+    return $repo
+}
+
 function Get-LatestAppRelease {
-    $uri = "https://api.github.com/repos/$($script:GitHubRepo)/releases/latest"
+    $uri = "https://api.github.com/repos/$(Get-UpdateRepo)/releases/latest"
     $rel = Invoke-RestMethod -Uri $uri -UseBasicParsing -TimeoutSec 6 -Headers @{
         'User-Agent' = $script:UserAgent
         'Accept'     = 'application/vnd.github+json'
@@ -57,12 +64,12 @@ function Install-AppUpdate {
         Write-Log "Téléchargement via l'API impossible, essai du lien classique : $AssetWebUrl" 'WARN'
         Invoke-FileDownload -Url $AssetWebUrl -OutFile $zip -Label "Driver $Version"
     }
-    Set-TaskProgress -Stage "Installation de Driver $Version"
+    Set-TaskProgress -Stage (T 'StageAppInstall' $Version)
     Expand-Archive -Path $zip -DestinationPath (Join-Path $work 'files') -Force
     Get-ChildItem -Path $work -Recurse -File | Unblock-File
 
     $installer = Get-ChildItem -Path (Join-Path $work 'files') -Recurse -Filter 'Install.ps1' -File | Select-Object -First 1
-    if (-not $installer) { throw 'Install.ps1 introuvable dans le ZIP téléchargé.' }
+    if (-not $installer) { throw (T 'MsgNoInstaller') }
 
     Write-Log "Mise à jour de Driver : lancement de $($installer.FullName)"
     $p = Start-Process -FilePath 'powershell.exe' -Wait -PassThru -WindowStyle Hidden -ArgumentList @(
@@ -71,7 +78,7 @@ function Install-AppUpdate {
 
     [pscustomobject]@{
         Device = "Driver $Version"; Success = ($p.ExitCode -eq 0); RebootRequired = $false
-        Message = if ($p.ExitCode -eq 0) { "Driver mis à jour en version $Version" } else { "Échec de la mise à jour (code $($p.ExitCode))" }
+        Message = if ($p.ExitCode -eq 0) { T 'MsgAppUpdated' $Version } else { T 'MsgAppUpdateFail' $p.ExitCode }
         SelfUpdate = $true
     }
 }

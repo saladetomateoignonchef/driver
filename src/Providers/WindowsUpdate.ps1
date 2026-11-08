@@ -54,7 +54,7 @@ function Install-WindowsUpdateDriver {
             [void]$coll.Add($u)
         }
     }
-    if ($coll.Count -eq 0) { throw 'Mises à jour introuvables (déjà installées ?)' }
+    if ($coll.Count -eq 0) { throw (T 'MsgWuNotFound') }
 
     Write-Log "Windows Update : téléchargement de $($coll.Count) pilote(s)"
     $downloader = $wu.Session.CreateUpdateDownloader()
@@ -73,7 +73,7 @@ function Install-WindowsUpdateDriver {
             Title          = $coll.Item($i).Title
             Success        = ($r.ResultCode -eq 2 -or $r.ResultCode -eq 3)
             RebootRequired = [bool]$r.RebootRequired
-            Message        = "Code résultat $($r.ResultCode) (HRESULT $($r.HResult))"
+            Message        = (T 'MsgWuResult' $r.ResultCode $r.HResult)
         }
     }
 }

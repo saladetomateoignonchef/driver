@@ -61,14 +61,16 @@ function Get-HardwareSnapshot {
 
 function Save-HardwareProfile {
     <# Enregistre la configuration (JSON + CSV) et ne garde que les $ProfileKeep dernières. #>
-    param([Parameter(Mandatory)][object]$Snapshot)
+    param([Parameter(Mandatory)][object]$Snapshot, [switch]$SkipCsv)
     if (-not (Test-Path $script:ProfileDir)) { New-Item -ItemType Directory -Path $script:ProfileDir -Force | Out-Null }
 
     $base = Join-Path $script:ProfileDir ('configuration-{0:yyyyMMdd-HHmmss}' -f [datetime]$Snapshot.Date)
     $Snapshot | ConvertTo-Json -Depth 5 | Set-Content -Path "$base.json" -Encoding UTF8
     # Même format que le tout premier script (lisible dans Excel)
-    @(Get-DeviceInventory) | Select-Object Name, Manufacturer, DriverVersion, DriverDate, Class, HardwareId |
-        Export-Csv -Path "$base.csv" -NoTypeInformation -Encoding UTF8 -Delimiter ';'
+    if (-not $SkipCsv) {
+        @(Get-DeviceInventory) | Select-Object Name, Manufacturer, DriverVersion, DriverDate, Class, HardwareId |
+            Export-Csv -Path "$base.csv" -NoTypeInformation -Encoding UTF8 -Delimiter ';'
+    }
 
     $old = @(Get-ChildItem -Path $script:ProfileDir -Filter 'configuration-*.json' | Sort-Object Name -Descending | Select-Object -Skip $script:ProfileKeep)
     foreach ($f in $old) {

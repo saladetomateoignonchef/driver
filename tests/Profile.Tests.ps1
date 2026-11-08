@@ -1,6 +1,8 @@
 ﻿# Tests unitaires (Pester 5) : configuration matérielle et liens
 BeforeAll {
     . (Join-Path $PSScriptRoot '..\src\Common.ps1')
+    . (Join-Path $PSScriptRoot '..\src\Lang.ps1')
+    Initialize-Language 'fr'
     . (Join-Path $PSScriptRoot '..\src\Inventory.ps1')
     . (Join-Path $PSScriptRoot '..\src\Profile.ps1')
     . (Join-Path $PSScriptRoot '..\src\Links.ps1')

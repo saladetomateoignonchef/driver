@@ -40,20 +40,20 @@ function Get-DefaultLinks {
     $b = $Config.System.Board
     if ($b -and $b.Product) {
         $maker = $b.Manufacturer -replace '\s+Technology Co\., Ltd\.?', ''
-        $links.Add((New-AppLink 'Carte mère' "$maker $($b.Product)" (Get-MotherboardSupportUrl -Board $b)))
+        $links.Add((New-AppLink (T 'CatBoard') "$maker $($b.Product)" (Get-MotherboardSupportUrl -Board $b)))
     }
     foreach ($gpu in @($Config.System.Gpus | Where-Object { $_ })) {
-        $links.Add((New-AppLink 'Carte graphique' $gpu (Get-VendorDriverPage $gpu)))
+        $links.Add((New-AppLink (T 'CatGpu') $gpu (Get-VendorDriverPage $gpu)))
     }
     if ($Config.System.Processor) {
-        $links.Add((New-AppLink 'Processeur / chipset' $Config.System.Processor (Get-VendorDriverPage $Config.System.Processor)))
+        $links.Add((New-AppLink (T 'CatCpu') $Config.System.Processor (Get-VendorDriverPage $Config.System.Processor)))
     }
 
     $kinds = @(
-        @{ Category = 'Audio';       Test = { $_.Class -eq 'MEDIA' -and $_.HardwareId -like 'HDAUDIO\*' -and $_.HardwareId -notmatch 'VEN_10DE' } }
-        @{ Category = 'Réseau';      Test = { $_.Class -eq 'NET' } }
-        @{ Category = 'Bluetooth';   Test = { $_.Class -eq 'BLUETOOTH' } }
-        @{ Category = 'Périphérique'; Test = { $_.HardwareId -like 'USB\*' -and $_.Class -notin @('BLUETOOTH', 'NET') -and $_.Manufacturer -notmatch '^(\(|Microsoft)' } }
+        @{ Category = (T 'CatAudio');     Test = { $_.Class -eq 'MEDIA' -and $_.HardwareId -like 'HDAUDIO\*' -and $_.HardwareId -notmatch 'VEN_10DE' } }
+        @{ Category = (T 'CatNet');       Test = { $_.Class -eq 'NET' } }
+        @{ Category = (T 'CatBt');        Test = { $_.Class -eq 'BLUETOOTH' } }
+        @{ Category = (T 'CatDevice');    Test = { $_.HardwareId -like 'USB\*' -and $_.Class -notin @('BLUETOOTH', 'NET') -and $_.Manufacturer -notmatch '^(\(|Microsoft)' } }
     )
     foreach ($k in $kinds) {
         foreach ($d in @($Config.Devices | Where-Object -FilterScript $k.Test | Select-Object -First 4)) {

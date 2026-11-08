@@ -100,4 +100,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           V="v${{ steps.version.outputs.version }}"
-          gh release create "$V" "dist/driver-$V.zip" --target "$GITHUB_SHA" --title "Driver $V" --generate-notes
+          gh release create "$V" "dist/driver-$V.zip" Installer-Driver.cmd --target "$GITHUB_SHA" --title "Driver $V" --generate-notes

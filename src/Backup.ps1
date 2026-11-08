@@ -58,7 +58,7 @@ function Backup-DeviceDriver {
 
     $dest = Join-Path $folder ('{0}_{1:yyyyMMdd-HHmmss}' -f (Get-SafeName $Device.DriverVersion), (Get-Date))
     New-Item -ItemType Directory -Path $dest -Force | Out-Null
-    Set-TaskProgress -Stage "Sauvegarde du pilote actuel : $($Device.Name)" -Detail "version $($Device.DriverVersion)"
+    Set-TaskProgress -Stage (T 'StageBackup' $Device.Name) -Detail (T 'StageVersion' $Device.DriverVersion)
     Write-Log "Sauvegarde : export de $($Device.InfName) ($($Device.Name) $($Device.DriverVersion))"
 
     $pnputil = Join-Path $env:SystemRoot 'System32\pnputil.exe'
@@ -168,7 +168,7 @@ function Restore-DriverBackup {
     $meta = Get-Content -Path (Join-Path $Path 'backup.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     Write-Log "Retour arrière : $($meta.Device) vers la version $($meta.Version)"
     if ($CreateRestorePoint) { [void](New-DriverRestorePoint) }
-    Set-TaskProgress -Stage "Retour arrière : $($meta.Device)" -Detail "réinstallation de la version $($meta.Version)"
+    Set-TaskProgress -Stage (T 'StageRestore' $meta.Device) -Detail (T 'StageVersion' $meta.Version)
 
     # Trouver le .inf de la sauvegarde qui cite un identifiant du périphérique
     $variants = Get-HardwareIdVariant -HardwareId $meta.HardwareId
@@ -184,7 +184,7 @@ function Restore-DriverBackup {
     $current = (Get-DeviceInventory | Where-Object { $_.Name -eq $meta.Device } | Select-Object -First 1).DriverVersion
     if (-not $infFile) {
         $result = [pscustomobject]@{ Device = $meta.Device; Success = $false; RebootRequired = $false
-                                     Message = "Aucun .inf de la sauvegarde ne correspond à $($meta.HardwareId)" }
+                                     Message = (T 'MsgRestoreNoInf' $meta.HardwareId) }
     } else {
         Initialize-NewDevApi
         $reboot = $false
@@ -192,11 +192,11 @@ function Restore-DriverBackup {
         $ok = [DriverNewDev]::UpdateDriverForPlugAndPlayDevices([IntPtr]::Zero, $hwid, $infFile, [DriverNewDev]::INSTALLFLAG_FORCE, [ref]$reboot)
         if ($ok) {
             $result = [pscustomobject]@{ Device = $meta.Device; Success = $true; RebootRequired = [bool]$reboot
-                                         Message = "Version $($meta.Version) réinstallée" }
+                                         Message = (T 'MsgRestoreOk' $meta.Version) }
         } else {
             $err = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
             $result = [pscustomobject]@{ Device = $meta.Device; Success = $false; RebootRequired = $false
-                                         Message = ('Échec de la réinstallation (code Windows 0x{0:X8})' -f $err) }
+                                         Message = (T 'MsgRestoreFail' ('0x{0:X8}' -f $err)) }
         }
     }
     Write-Log "Retour arrière : $($result.Message)"

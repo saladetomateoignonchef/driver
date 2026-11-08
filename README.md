@@ -21,6 +21,9 @@ de mon PC et me propose de les mettre à jour. **Rien n'est installé sans ma va
 | **Démarrage** | Vérification à chaque démarrage, une fois par jour ou par semaine, avec notification |
 | **Paramètres** | Fréquence, notification, Game Ready / Studio, thème clair / sombre, sauvegardes, mises à jour ignorées |
 | **Mise à jour de Driver** | Bandeau quand une nouvelle version est publiée sur GitHub, installation en un clic |
+| **Langues** | Français / anglais (`src/lang/fr.json`, `src/lang/en.json`), changement immédiat |
+| **Personnalisable** | Taille du texte (100/115/130 %), sources des pilotes activables, dépôt GitHub des mises à jour modifiable |
+| **Export / import** | Paramètres, liens et configuration matérielle dans un seul fichier |
 | **Entretien** | Journaux et téléchargements de plus de 30 jours supprimés automatiquement |
 
 ## Fonctionnement
@@ -73,6 +76,7 @@ driver/
 ├── DriverUpdater.ps1          # point d'entrée (fenêtre ou mode -Startup)
 ├── Install.ps1                # installe dans Program Files + tâche planifiée + raccourci
 ├── Uninstall.ps1              # désinstalle proprement
+├── Installer-Driver.cmd       # installateur en un clic (publié avec chaque version)
 ├── src/
 │   ├── Common.ps1             # journaux, droits admin, conversion de versions
 │   ├── Inventory.ps1          # inventaire matériel (WMI)
@@ -87,6 +91,9 @@ driver/
 │   ├── Notify.ps1             # notification au démarrage
 │   ├── Profile.ps1            # configuration matérielle (premier lancement, nouveau matériel)
 │   ├── Links.ps1              # sites de support, liens modifiables
+│   ├── Lang.ps1               # traductions (fonction T)
+│   ├── Transfer.ps1           # export / import des réglages
+│   └── lang/                  # fr.json, en.json
 │   ├── Loader.ps1             # charge tous les modules
 │   └── Providers/
 │       ├── Nvidia.ps1         # fournisseur NVIDIA
@@ -95,7 +102,16 @@ driver/
 └── docs/cahier-des-charges.md
 ```
 
-## Installation
+## Installation en un clic (recommandé)
+
+1. Sur la page [Releases](https://github.com/saladetomateoignonchef/driver/releases/latest), télécharger **`Installer-Driver.cmd`**.
+2. Double-cliquer dessus et accepter la demande d'autorisation de Windows.
+   (Si Windows affiche « Windows a protégé votre ordinateur » : *Informations complémentaires* → *Exécuter quand même*.)
+3. Le fichier télécharge la dernière version, l'installe, crée le raccourci **Driver** sur le Bureau et lance l'application.
+
+Ensuite, Driver se met à jour tout seul : bandeau « Nouvelle version disponible » ou bouton **Maj GitHub**.
+
+## Installation manuelle
 
 1. Télécharger le dépôt (bouton **Code → Download ZIP**) et l'extraire, ou `git clone`.
 2. Ouvrir PowerShell dans le dossier, puis débloquer les fichiers téléchargés :
@@ -152,7 +168,9 @@ powershell.exe -ExecutionPolicy Bypass -File .\Uninstall.ps1
 
 - Les API NVIDIA utilisées ne sont pas documentées officiellement : NVIDIA peut les modifier.
   En cas de panne, Windows Update prend le relais pour la carte graphique.
-- AMD et Intel n'ont pas d'API publique simple : leurs pilotes passent par Windows Update.
+- AMD et Intel n'ont pas d'interface publique pour vérifier leurs pilotes : ils passent par Windows Update,
+  et la page « Sites » ouvre leurs outils officiels (AMD Auto-Detect, Intel Driver & Support Assistant).
+- Les journaux restent en français, quelle que soit la langue choisie.
 - Le BIOS et les firmwares ne sont pas gérés (trop risqué en automatique) : un BIOS déposé dans la fenêtre est reconnu et refusé.
 - Le retour arrière n'est possible que pour les pilotes de constructeurs (`oemXX.inf`), pas pour ceux intégrés à Windows.
 - Les sauvegardes du pilote NVIDIA sont volumineuses (environ 1 Go chacune) : d'où la limite par pilote.

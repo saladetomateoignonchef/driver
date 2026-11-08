@@ -34,7 +34,7 @@ function Expand-DriverPackage {
 
     if ([IO.Path]::GetExtension($Path) -eq '.exe') { return (Split-Path $Path -Parent) }
 
-    throw "Format non pris en charge : $Path (glisse un fichier .zip, un dossier ou un .exe)"
+    throw (T 'MsgBadFormat' $Path)
 }
 
 function Read-InfText {
@@ -194,17 +194,17 @@ function Install-InfDriver {
 
     $pnputil = Join-Path $env:SystemRoot 'System32\pnputil.exe'
     foreach ($d in $Driver) {
-        Set-TaskProgress -Stage "Installation de $($d.InfName)" -Detail "$($d.Device) : $($d.CurrentVersion) -> $($d.PackageVersion)"
+        Set-TaskProgress -Stage (T 'StageInstallInf' $d.InfName) -Detail "$($d.Device) : $($d.CurrentVersion) -> $($d.PackageVersion)"
         Write-Log "pnputil : installation de $($d.Inf)"
         $out  = & $pnputil /add-driver "$($d.Inf)" /install 2>&1 | Out-String
         $code = $LASTEXITCODE
         Write-Log "pnputil : code $code`r`n$out"
 
         $msg = switch ($code) {
-            0       { "Installé ($($d.PackageVersion))" }
-            3010    { "Installé ($($d.PackageVersion)), redémarrage nécessaire" }
-            259     { 'Ajouté, mais Windows a gardé le pilote actuel (déjà équivalent ou plus récent)' }
-            default { "Échec, code pnputil $code (voir journal)" }
+            0       { T 'MsgInfOk' $d.PackageVersion }
+            3010    { T 'MsgInfOkReboot' $d.PackageVersion }
+            259     { T 'MsgInfKept' }
+            default { T 'MsgInfFail' $code }
         }
         Add-HistoryEntry -Type 'Paquet' -Device $d.Device -Source $d.InfName -OldVersion $d.CurrentVersion `
             -NewVersion $d.PackageVersion -Success ($code -in @(0, 3010, 259)) -Message $msg
@@ -222,7 +222,7 @@ function Install-DriverPackage {
     param([Parameter(Mandatory)][object]$Analysis, [switch]$CreateRestorePoint)
 
     if ($CreateRestorePoint) {
-        Set-TaskProgress -Stage 'Création du point de restauration'
+        Set-TaskProgress -Stage (T 'StageRestorePoint')
         [void](New-DriverRestorePoint)
     }
 
@@ -238,18 +238,18 @@ function Install-DriverPackage {
 
     if ($Analysis.Setup -and $Analysis.SetupSigned) {
         Write-Log "Paquet manuel : lancement de $($Analysis.Setup)"
-        Set-TaskProgress -Stage "Installateur du constructeur en cours : $(Split-Path $Analysis.Setup -Leaf)" -Detail 'suis ses étapes dans sa fenêtre'
+        Set-TaskProgress -Stage (T 'StageSetup' (Split-Path $Analysis.Setup -Leaf)) -Detail (T 'StageSetupDetail')
         $p = Start-Process -FilePath $Analysis.Setup -WorkingDirectory (Split-Path $Analysis.Setup -Parent) -Wait -PassThru
         Clear-TaskProgress
         Add-HistoryEntry -Type 'Paquet' -Device (Split-Path $Analysis.Source -Leaf) -Source 'setup.exe' `
-            -Success ($p.ExitCode -in @(0, 3010)) -Message "Installateur terminé (code $($p.ExitCode))"
+            -Success ($p.ExitCode -in @(0, 3010)) -Message (T 'MsgSetupDone' $p.ExitCode)
         return [pscustomobject]@{
             Device         = Split-Path $Analysis.Source -Leaf
             Success        = ($p.ExitCode -in @(0, 3010))
             RebootRequired = $true
-            Message        = "Installateur terminé (code $($p.ExitCode))"
+            Message        = (T 'MsgSetupDone' $p.ExitCode)
         }
     }
 
-    throw 'Rien à installer dans ce paquet.'
+    throw (T 'MsgNothingToInstall')
 }

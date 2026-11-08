@@ -52,12 +52,12 @@ function Export-DriverReport {
     $okCount = @($history | Where-Object { $_.Success }).Count
 
     $histRows = ($history | ForEach-Object {
-        $state = if ($_.Success) { '<span class="ok">Réussi</span>' } else { '<span class="ko">Échec</span>' }
+        $state = if ($_.Success) { "<span class='ok'>$(E (T 'RepOk'))</span>" } else { "<span class='ko'>$(E (T 'RepFail'))</span>" }
         $date = ([datetime]$_.Date).ToString('dd/MM/yyyy HH:mm')
         "<tr><td>$(E $date)</td><td>$(E $_.Type)</td><td>$(E $_.Device)</td>" +
         "<td class='mono'>$(E $_.OldVersion)</td><td class='mono'>$(E $_.NewVersion)</td><td>$state</td><td class='muted'>$(E $_.Message)</td></tr>"
     }) -join "`n"
-    if (-not $histRows) { $histRows = '<tr><td colspan="7" class="muted">Aucune installation enregistrée.</td></tr>' }
+    if (-not $histRows) { $histRows = "<tr><td colspan='7' class='muted'>$(E (T 'NoHistory'))</td></tr>" }
 
     $drvRows = ($drivers | ForEach-Object {
         "<tr><td>$(E $_.Name)</td><td>$(E $_.Manufacturer)</td><td class='mono'>$(E $_.DriverVersion)</td><td>$(E $_.Class)</td></tr>"
@@ -65,7 +65,7 @@ function Export-DriverReport {
 
     $html = @"
 <!doctype html>
-<html lang="fr"><head><meta charset="utf-8"><title>Rapport Driver - $(E $env:COMPUTERNAME)</title>
+<html lang="$($script:Language)"><head><meta charset="utf-8"><title>$(E (T 'RepTitle')) - $(E $env:COMPUTERNAME)</title>
 <style>
  body{font-family:'Segoe UI',sans-serif;background:#f4f6f8;color:#17202a;margin:0;padding:32px}
  .wrap{max-width:1100px;margin:auto}
@@ -81,22 +81,22 @@ function Export-DriverReport {
  .mono{font-family:Consolas,monospace} .muted{color:#5d6b78} .ok{color:#166534;font-weight:600} .ko{color:#b91c1c;font-weight:600}
  footer{margin-top:24px;color:#5d6b78;font-size:12px}
 </style></head><body><div class="wrap">
-<header><div><h1>Rapport des pilotes</h1><p>$(E $env:COMPUTERNAME) · généré le $(Get-Date -Format 'dd/MM/yyyy à HH:mm')</p></div><div>Driver v$(E $script:AppVersion)</div></header>
+<header><div><h1>$(E (T 'RepTitle'))</h1><p>$(E $env:COMPUTERNAME) · $(E (T 'RepGenerated' (Get-Date -Format 'dd/MM/yyyy HH:mm')))</p></div><div>Driver v$(E $script:AppVersion)</div></header>
 <div class="grid">
- <div class="card"><small>Système</small><b>$(E $os)</b></div>
- <div class="card"><small>Carte mère</small><b>$(E $board.Manufacturer) $(E $board.Product)</b></div>
- <div class="card"><small>Processeur</small><b>$(E $cpu)</b></div>
- <div class="card"><small>Carte graphique · RAM</small><b>$(E $gpu.Name) · $ram Go</b></div>
+ <div class="card"><small>$(E (T 'RepSystem'))</small><b>$(E $os)</b></div>
+ <div class="card"><small>$(E (T 'HwBoard'))</small><b>$(E $board.Manufacturer) $(E $board.Product)</b></div>
+ <div class="card"><small>$(E (T 'HwCpu'))</small><b>$(E $cpu)</b></div>
+ <div class="card"><small>$(E (T 'HwGpu')) · $(E (T 'HwRam'))</small><b>$(E $gpu.Name) · $(E (T 'RamGB' $ram))</b></div>
 </div>
-<h2>Historique des installations ($($history.Count) opération(s), $okCount réussie(s))</h2>
-<table><tr><th>Date</th><th>Type</th><th>Pilote</th><th>Ancienne version</th><th>Nouvelle version</th><th>Résultat</th><th>Détail</th></tr>
+<h2>$(E (T 'RepHistory' $history.Count $okCount))</h2>
+<table><tr><th>$(E (T 'ColDate'))</th><th>$(E (T 'ColType'))</th><th>$(E (T 'ColDriver'))</th><th>$(E (T 'ColBefore'))</th><th>$(E (T 'ColAfter'))</th><th>$(E (T 'ColResult'))</th><th>$(E (T 'RepDetail'))</th></tr>
 $histRows
 </table>
-<h2>Pilotes constructeurs installés ($($drivers.Count))</h2>
-<table><tr><th>Périphérique</th><th>Fabricant</th><th>Version</th><th>Type</th></tr>
+<h2>$(E (T 'RepDrivers' $drivers.Count))</h2>
+<table><tr><th>$(E (T 'ColDevice'))</th><th>$(E (T 'ColManufacturer'))</th><th>$(E (T 'ColInstalled'))</th><th>$(E (T 'ColType'))</th></tr>
 $drvRows
 </table>
-<footer>Rapport généré par Driver — https://github.com/$($script:GitHubRepo)</footer>
+<footer>$(E (T 'RepFooter')) — https://github.com/$(Get-UpdateRepo)</footer>
 </div></body></html>
 "@
     Set-Content -Path $Path -Value $html -Encoding UTF8

@@ -112,18 +112,18 @@ function Install-NvidiaDriver {
 
     $file = Join-Path $script:DownloadDir ('nvidia-{0}.exe' -f $Version)
     Write-Log "NVIDIA : téléchargement de $Url"
-    Invoke-FileDownload -Url $Url -OutFile $file -Label "pilote NVIDIA $Version"
+    Invoke-FileDownload -Url $Url -OutFile $file -Label (T 'LabelNvidia' $Version)
 
-    Set-TaskProgress -Stage 'Vérification de la signature numérique du pilote NVIDIA'
+    Set-TaskProgress -Stage (T 'StageSignature')
     $sig = Get-AuthenticodeSignature -FilePath $file
     if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'NVIDIA Corporation') {
         Remove-Item -Path $file -Force -ErrorAction SilentlyContinue
-        throw "Signature numérique invalide ($($sig.Status)) : fichier supprimé par sécurité."
+        throw (T 'MsgBadSignature' $sig.Status)
     }
     Write-Log "NVIDIA : signature valide ($($sig.SignerCertificate.Subject))"
 
     Write-Log 'NVIDIA : installation silencieuse en cours...'
-    Set-TaskProgress -Stage "Installation du pilote NVIDIA $Version" -Detail 'l''écran peut devenir noir quelques secondes'
+    Set-TaskProgress -Stage (T 'StageNvidiaInstall' $Version) -Detail (T 'StageScreenBlink')
     $proc = Start-Process -FilePath $file -ArgumentList '-s', '-noreboot', '-noeula' -Wait -PassThru
     Write-Log "NVIDIA : installateur terminé, code de sortie $($proc.ExitCode)"
 
@@ -136,6 +136,6 @@ function Install-NvidiaDriver {
     [pscustomobject]@{
         Success        = ($installed -eq $Version)
         RebootRequired = $true
-        Message        = "Version installée : $installed (attendue : $Version, code $($proc.ExitCode))"
+        Message        = (T 'MsgNvidiaResult' $installed $Version $proc.ExitCode)
     }
 }

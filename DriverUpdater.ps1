@@ -41,7 +41,7 @@ if (-not $created) {
         # Lancement manuel : on prévient l'utilisateur au lieu de quitter sans rien dire
         Add-Type -AssemblyName System.Windows.Forms
         [void][System.Windows.Forms.MessageBox]::Show(
-            "Driver est déjà en cours d'exécution (une vérification tourne peut-être en arrière-plan).`r`nRéessaie dans 2 minutes.",
+            (T 'AlreadyRunning'),
             'Driver', 'OK', 'Information')
     }
     exit
@@ -74,8 +74,8 @@ try {
         }
         if ($settings.Notifications) {
             $lines = @($visible | Select-Object -First 3 | ForEach-Object { "$($_.Device) : $($_.NewVersion)" })
-            if ($newHw.Count) { $lines += "Nouveau matériel détecté : $($newHw.Count)" }
-            $title = if ($visible.Count) { "$($visible.Count) mise(s) à jour de pilotes disponible(s)" } else { 'Nouveau matériel détecté' }
+            if ($newHw.Count) { $lines += (T 'NotifyNewHw' $newHw.Count) }
+            $title = if ($visible.Count) { T 'NotifyTitle' $visible.Count } else { T 'NotifyNewHwTitle' }
             if (-not (Show-UpdateNotification -Count $visible.Count -Summary ($lines -join "`n") -Title $title)) { exit 0 }
         }
         Show-MainWindow -InitialResults $results
@@ -87,7 +87,7 @@ try {
 catch {
     Write-Log "Erreur fatale : $($_.Exception.Message)" 'ERREUR'
     Add-Type -AssemblyName System.Windows.Forms
-    [void][System.Windows.Forms.MessageBox]::Show("Erreur : $($_.Exception.Message)", 'Driver', 'OK', 'Error')
+    [void][System.Windows.Forms.MessageBox]::Show("$(T 'Error') : $($_.Exception.Message)", 'Driver', 'OK', 'Error')
 }
 finally {
     $mutex.ReleaseMutex()

@@ -3,8 +3,8 @@
 # =============================================================================
 
 $script:AppName      = 'DriverUpdater'
-$script:AppVersion   = '2.1.0'                              # doit correspondre au tag GitHub (v2.0.0)
-$script:GitHubRepo   = 'saladetomateoignonchef/driver'
+$script:AppVersion   = '2.2.0'                              # une nouvelle valeur poussée sur main = nouvelle version publiée
+$script:GitHubRepo   = 'saladetomateoignonchef/driver'      # source par défaut (modifiable dans Paramètres)
 $script:DataDir      = Join-Path $env:ProgramData 'DriverUpdater'
 $script:LogDir       = Join-Path $script:DataDir 'logs'
 $script:DownloadDir  = Join-Path $script:DataDir 'downloads'
@@ -111,6 +111,11 @@ function Get-DefaultSettings {
         BackupKeep      = 2             # nombre de sauvegardes gardées par pilote
         AutoUpdateCheck = $true         # vérifier les nouvelles versions de Driver
         IgnoredUpdates  = @()           # { Device, NewVersion, Date }
+        Language        = 'fr'          # fr | en
+        Zoom            = 100           # taille du texte : 100 | 115 | 130 (%)
+        UpdateRepo      = $script:GitHubRepo   # dépôt GitHub d'où viennent les mises à jour de Driver
+        ProviderNvidia  = $true         # interroger le site NVIDIA
+        ProviderWindowsUpdate = $true   # interroger Windows Update
         LastCheck       = $null         # date de la dernière vérification automatique
     }
 }
@@ -212,7 +217,7 @@ function Invoke-FileDownload {
             Write-Log "Téléchargement de $Label : tentative $i/$Attempts échouée ($($_.Exception.Message))" 'WARN'
             Remove-Item -Path $OutFile -Force -ErrorAction SilentlyContinue
             if ($i -eq $Attempts) { throw }
-            Set-TaskProgress -Stage "Téléchargement : $Label" -Detail "nouvelle tentative dans $(3 * $i) s..."
+            Set-TaskProgress -Stage (T 'StageDownload' $Label) -Detail (T 'StageRetry' (3 * $i))
             Start-Sleep -Seconds (3 * $i)
         }
     }
@@ -244,12 +249,12 @@ function Invoke-FileDownloadOnce {
                     $speed = $done / 1MB / [math]::Max($watch.Elapsed.TotalSeconds, 0.001)
                     if ($total -gt 0) {
                         $pct    = [int][math]::Floor($done * 100 / $total)
-                        $detail = '{0} % · {1:N0} / {2:N0} Mo · {3:N1} Mo/s' -f $pct, ($done / 1MB), ($total / 1MB), $speed
+                        $detail = '{0} % · {1:N0} / {2:N0} {4} · {3:N1} {4}/s' -f $pct, ($done / 1MB), ($total / 1MB), $speed, (T 'UnitMB')
                     } else {
                         $pct    = -1
-                        $detail = '{0:N0} Mo · {1:N1} Mo/s' -f ($done / 1MB), $speed
+                        $detail = '{0:N0} {2} · {1:N1} {2}/s' -f ($done / 1MB), $speed, (T 'UnitMB')
                     }
-                    Set-TaskProgress -Stage "Téléchargement : $Label" -Percent $pct -Detail $detail
+                    Set-TaskProgress -Stage (T 'StageDownload' $Label) -Percent $pct -Detail $detail
                 }
             }
         } finally {

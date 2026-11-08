@@ -245,7 +245,7 @@
     </Style>
   </Window.Resources>
 
-  <Grid>
+  <Grid x:Name="RootGrid">
     <Grid.ColumnDefinitions>
       <ColumnDefinition Width="230"/>
       <ColumnDefinition Width="*"/>
@@ -268,32 +268,32 @@
           <TextBlock Text="Driver" Foreground="White" FontSize="20" FontWeight="Bold" Margin="11,0,0,0" VerticalAlignment="Center"/>
         </StackPanel>
 
-        <Button x:Name="NavDashboard" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Tableau de bord"/></Button>
+        <Button x:Name="NavDashboard" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="{DynamicResource L_NavDashboard}"/></Button>
         <Button x:Name="NavUpdates" DockPanel.Dock="Top" Style="{StaticResource Nav}">
           <Grid>
-            <TextBlock Text="Mises à jour"/>
+            <TextBlock Text="{DynamicResource L_NavUpdates}"/>
             <Border x:Name="UpdatesBadge" HorizontalAlignment="Right" Background="#2DD4BF" CornerRadius="9" Padding="7,0" Visibility="Collapsed">
               <TextBlock x:Name="UpdatesBadgeText" Text="0" Foreground="#0B1F33" FontWeight="SemiBold" FontSize="11.5"/>
             </Border>
           </Grid>
         </Button>
-        <Button x:Name="NavAll" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Tous les pilotes"/></Button>
-        <Button x:Name="NavBackups" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Sauvegardes"/></Button>
-        <Button x:Name="NavHistory" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Historique"/></Button>
+        <Button x:Name="NavAll" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="{DynamicResource L_NavAll}"/></Button>
+        <Button x:Name="NavBackups" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="{DynamicResource L_NavBackups}"/></Button>
+        <Button x:Name="NavHistory" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="{DynamicResource L_NavHistory}"/></Button>
         <Border DockPanel.Dock="Top" Height="1" Background="#21405C" Margin="10,10,10,13"/>
         <Button x:Name="NavHardware" DockPanel.Dock="Top" Style="{StaticResource Nav}">
           <Grid>
-            <TextBlock Text="Nouveau matériel"/>
+            <TextBlock Text="{DynamicResource L_NavHardware}"/>
             <Border x:Name="HardwareBadge" HorizontalAlignment="Right" Background="#FBBF24" CornerRadius="9" Padding="7,0" Visibility="Collapsed">
               <TextBlock x:Name="HardwareBadgeText" Text="0" Foreground="#0B1F33" FontWeight="SemiBold" FontSize="11.5"/>
             </Border>
           </Grid>
         </Button>
-        <Button x:Name="NavSites" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Sites"/></Button>
-        <Button x:Name="NavLinks" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Liens"/></Button>
-        <Button x:Name="NavPackage" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Installer un paquet"/></Button>
-        <Button x:Name="NavLogs" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Journaux"/></Button>
-        <Button x:Name="NavSettings" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="Paramètres"/></Button>
+        <Button x:Name="NavSites" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="{DynamicResource L_NavSites}"/></Button>
+        <Button x:Name="NavLinks" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="{DynamicResource L_NavLinks}"/></Button>
+        <Button x:Name="NavPackage" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="{DynamicResource L_NavPackage}"/></Button>
+        <Button x:Name="NavLogs" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="{DynamicResource L_NavLogs}"/></Button>
+        <Button x:Name="NavSettings" DockPanel.Dock="Top" Style="{StaticResource Nav}"><TextBlock Text="{DynamicResource L_NavSettings}"/></Button>
 
         <Border DockPanel.Dock="Bottom" Background="#1A3249" CornerRadius="10" Padding="14,12">
           <StackPanel>
@@ -317,15 +317,15 @@
       <StackPanel>
       <Border x:Name="HardwareBanner" Background="#FEF3C7" CornerRadius="10" Padding="16,10" Margin="0,0,0,14" Visibility="Collapsed">
         <DockPanel>
-          <Button x:Name="BtnHardwareBanner" DockPanel.Dock="Right" Content="Voir le nouveau matériel" Style="{StaticResource BtnBase}" Padding="14,6"/>
+          <Button x:Name="BtnHardwareBanner" DockPanel.Dock="Right" Content="{DynamicResource L_BtnSeeHardware}" Style="{StaticResource BtnBase}" Padding="14,6"/>
           <TextBlock x:Name="HardwareBannerText" Foreground="#78350F" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0"/>
         </DockPanel>
       </Border>
       <Border x:Name="AppUpdateBanner" Background="{DynamicResource BannerBrush}" CornerRadius="10" Padding="16,10" Margin="0,0,0,14" Visibility="Collapsed">
         <DockPanel>
           <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-            <Button x:Name="BtnAppUpdateLater" Content="Plus tard" Style="{StaticResource BtnLink}" Foreground="{DynamicResource BannerTextBrush}" Margin="0,0,6,0"/>
-            <Button x:Name="BtnAppUpdate" Content="Mettre à jour Driver" Style="{StaticResource BtnPrimary}" Padding="14,6"/>
+            <Button x:Name="BtnAppUpdateLater" Content="{DynamicResource L_Later}" Style="{StaticResource BtnLink}" Foreground="{DynamicResource BannerTextBrush}" Margin="0,0,6,0"/>
+            <Button x:Name="BtnAppUpdate" Content="{DynamicResource L_BtnUpdateDriver}" Style="{StaticResource BtnPrimary}" Padding="14,6"/>
           </StackPanel>
           <TextBlock x:Name="AppUpdateText" Foreground="{DynamicResource BannerTextBrush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
         </DockPanel>
@@ -336,11 +336,12 @@
       <Grid Grid.Row="1">
         <StackPanel>
           <TextBlock x:Name="PageTitle" Text="Tableau de bord" FontSize="24" FontWeight="Bold"/>
-          <TextBlock x:Name="StatusText" Style="{StaticResource Muted}" Margin="0,3,0,0" Text="Prêt" TextTrimming="CharacterEllipsis"/>
+          <TextBlock x:Name="StatusText" Style="{StaticResource Muted}" Margin="0,3,0,0" Text="{DynamicResource L_Ready}" TextTrimming="CharacterEllipsis"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-          <Button x:Name="BtnSearch" Content="Analyser" Style="{StaticResource BtnBase}" Margin="0,0,8,0"/>
-          <Button x:Name="BtnInstall" Content="Installer" Style="{StaticResource BtnPrimary}" IsEnabled="False"/>
+          <Button x:Name="BtnGitHubUpdate" Content="{DynamicResource L_BtnGitHubUpdate}" Style="{StaticResource BtnBase}" Margin="0,0,8,0"/>
+          <Button x:Name="BtnSearch" Content="{DynamicResource L_BtnSearch}" Style="{StaticResource BtnBase}" Margin="0,0,8,0"/>
+          <Button x:Name="BtnInstall" Content="{DynamicResource L_BtnInstall}" Style="{StaticResource BtnPrimary}" IsEnabled="False"/>
         </StackPanel>
       </Grid>
 
@@ -360,20 +361,20 @@
           <UniformGrid Columns="3">
             <Border Style="{StaticResource Card}" Margin="0,0,12,0">
               <StackPanel>
-                <TextBlock Text="Périphériques analysés" Style="{StaticResource Muted}"/>
+                <TextBlock Text="{DynamicResource L_KpiDevices}" Style="{StaticResource Muted}"/>
                 <TextBlock x:Name="KpiDevices" Text="-" FontSize="26" FontWeight="Bold" Margin="0,4,0,0"/>
               </StackPanel>
             </Border>
             <Border Style="{StaticResource Card}" Margin="0,0,12,0">
               <StackPanel>
-                <TextBlock Text="Mises à jour disponibles" Style="{StaticResource Muted}"/>
+                <TextBlock Text="{DynamicResource L_KpiUpdates}" Style="{StaticResource Muted}"/>
                 <TextBlock x:Name="KpiUpdates" Text="-" FontSize="26" FontWeight="Bold" Foreground="#D97706" Margin="0,4,0,0"/>
               </StackPanel>
             </Border>
             <Border Style="{StaticResource Card}">
               <StackPanel>
-                <TextBlock Text="Point de restauration" Style="{StaticResource Muted}"/>
-                <CheckBox x:Name="ChkRestore" Style="{StaticResource Toggle}" IsChecked="True" Margin="0,11,0,0" Content="Avant chaque installation"/>
+                <TextBlock Text="{DynamicResource L_KpiRestore}" Style="{StaticResource Muted}"/>
+                <CheckBox x:Name="ChkRestore" Style="{StaticResource Toggle}" IsChecked="True" Margin="0,11,0,0" Content="{DynamicResource L_RestoreBefore}"/>
               </StackPanel>
             </Border>
           </UniformGrid>
@@ -393,16 +394,16 @@
                 <Path Data="M15,4 L15,19 M8.5,12.5 L15,19 L21.5,12.5 M5,25 L25,25" Stroke="#0F766E" StrokeThickness="2.2"
                       StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="30" Height="30" Stretch="None" VerticalAlignment="Center"/>
                 <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
-                  <TextBlock Text="Installer un pilote téléchargé" FontWeight="SemiBold" FontSize="14"/>
-                  <TextBlock Text="Glisse le ZIP dans la fenêtre, ou clique ici pour le choisir" Style="{StaticResource Muted}" Margin="0,2,0,0"/>
+                  <TextBlock Text="{DynamicResource L_DropTitle}" FontWeight="SemiBold" FontSize="14"/>
+                  <TextBlock Text="{DynamicResource L_DropText}" Style="{StaticResource Muted}" Margin="0,2,0,0"/>
                 </StackPanel>
               </StackPanel>
             </Grid>
             <Border Grid.Column="1" Style="{StaticResource Card}" Margin="12,0,0,0">
               <StackPanel>
-                <TextBlock Text="Activité récente" FontWeight="SemiBold"/>
+                <TextBlock Text="{DynamicResource L_RecentActivity}" FontWeight="SemiBold"/>
                 <TextBlock x:Name="ActivityText" Style="{StaticResource Muted}" FontSize="12" LineHeight="20"
-                           TextTrimming="CharacterEllipsis" Margin="0,4,0,0" Text="Aucune activité aujourd'hui."/>
+                           TextTrimming="CharacterEllipsis" Margin="0,4,0,0" Text="{DynamicResource L_NoActivity}"/>
               </StackPanel>
             </Border>
           </Grid>
@@ -413,7 +414,7 @@
           <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel x:Name="UpdatesPanel"/>
           </ScrollViewer>
-          <TextBlock x:Name="UpdatesEmpty" Text="Aucune mise à jour disponible : tout est à jour." Style="{StaticResource Muted}"
+          <TextBlock x:Name="UpdatesEmpty" Text="{DynamicResource L_NoUpdates}" Style="{StaticResource Muted}"
                      FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
         </Grid>
 
@@ -436,7 +437,7 @@
             <RowDefinition Height="*"/>
           </Grid.RowDefinitions>
           <DockPanel Margin="0,0,0,12">
-            <Button x:Name="BtnBackupsClear" DockPanel.Dock="Right" Content="Tout supprimer" Style="{StaticResource BtnSmall}"/>
+            <Button x:Name="BtnBackupsClear" DockPanel.Dock="Right" Content="{DynamicResource L_DeleteAll}" Style="{StaticResource BtnSmall}"/>
             <TextBlock x:Name="BackupsInfo" Style="{StaticResource Muted}" VerticalAlignment="Center" TextWrapping="Wrap"/>
           </DockPanel>
           <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -444,7 +445,7 @@
           </ScrollViewer>
           <TextBlock x:Name="BackupsEmpty" Grid.Row="1" Style="{StaticResource Muted}" FontSize="14" TextAlignment="Center" TextWrapping="Wrap"
                      HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"
-                     Text="Aucune sauvegarde pour l'instant. Driver sauvegarde automatiquement le pilote actuel avant chaque installation."/>
+                     Text="{DynamicResource L_NoBackups}"/>
         </Grid>
 
         <!-- ===== Vue : historique ===== -->
@@ -454,7 +455,7 @@
             <RowDefinition Height="*"/>
           </Grid.RowDefinitions>
           <DockPanel Margin="0,0,0,12">
-            <Button x:Name="BtnReport" DockPanel.Dock="Right" Content="Exporter un rapport" Style="{StaticResource BtnSmall}"/>
+            <Button x:Name="BtnReport" DockPanel.Dock="Right" Content="{DynamicResource L_ExportReport}" Style="{StaticResource BtnSmall}"/>
             <TextBlock x:Name="HistoryInfo" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
           </DockPanel>
           <Border Grid.Row="1" Style="{StaticResource Card}" Padding="0">
@@ -470,7 +471,7 @@
             </DataGrid>
           </Border>
           <TextBlock x:Name="HistoryEmpty" Grid.Row="1" Style="{StaticResource Muted}" FontSize="14" HorizontalAlignment="Center"
-                     VerticalAlignment="Center" Visibility="Collapsed" Text="Aucune installation enregistrée pour l'instant."/>
+                     VerticalAlignment="Center" Visibility="Collapsed" Text="{DynamicResource L_NoHistory}"/>
         </Grid>
 
         <!-- ===== Vue : nouveau matériel ===== -->
@@ -482,20 +483,20 @@
           </Grid.RowDefinitions>
           <Border Style="{StaticResource Card}">
             <StackPanel>
-              <TextBlock Text="Configuration enregistrée" Style="{StaticResource SectionTitle}"/>
+              <TextBlock Text="{DynamicResource L_HwSaved}" Style="{StaticResource SectionTitle}"/>
               <TextBlock x:Name="HwConfigText" Style="{StaticResource Muted}" Margin="0,2,0,8"/>
               <TextBlock x:Name="HwSystemText" LineHeight="20" TextWrapping="Wrap"/>
             </StackPanel>
           </Border>
           <WrapPanel Grid.Row="1" Margin="0,12,0,12">
-            <Button x:Name="BtnHwScan" Content="Détecter le nouveau matériel" Style="{StaticResource BtnPrimary}" Margin="0,0,8,0"/>
-            <Button x:Name="BtnHwSave" Content="Enregistrer comme nouvelle configuration" Style="{StaticResource BtnBase}" IsEnabled="False" Margin="0,0,8,0"/>
-            <Button x:Name="BtnHwFolder" Content="Ouvrir le dossier des configurations" Style="{StaticResource BtnLink}" VerticalAlignment="Center"/>
+            <Button x:Name="BtnHwScan" Content="{DynamicResource L_HwScan}" Style="{StaticResource BtnPrimary}" Margin="0,0,8,0"/>
+            <Button x:Name="BtnHwSave" Content="{DynamicResource L_HwSave}" Style="{StaticResource BtnBase}" IsEnabled="False" Margin="0,0,8,0"/>
+            <Button x:Name="BtnHwFolder" Content="{DynamicResource L_HwFolder}" Style="{StaticResource BtnLink}" VerticalAlignment="Center"/>
           </WrapPanel>
           <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
             <StackPanel>
               <StackPanel x:Name="HwResultPanel"/>
-              <TextBlock Text="Configurations enregistrées" Style="{StaticResource SectionTitle}" Margin="0,16,0,8"/>
+              <TextBlock Text="{DynamicResource L_HwList}" Style="{StaticResource SectionTitle}" Margin="0,16,0,8"/>
               <StackPanel x:Name="HwHistoryPanel"/>
             </StackPanel>
           </ScrollViewer>
@@ -508,9 +509,9 @@
             <RowDefinition Height="*"/>
           </Grid.RowDefinitions>
           <DockPanel Margin="0,0,0,12">
-            <Button x:Name="BtnEditLinks" DockPanel.Dock="Right" Content="Modifier les liens" Style="{StaticResource BtnSmall}"/>
+            <Button x:Name="BtnEditLinks" DockPanel.Dock="Right" Content="{DynamicResource L_EditLinks}" Style="{StaticResource BtnSmall}"/>
             <TextBlock Style="{StaticResource Muted}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0"
-                       Text="Les pages de pilotes de tes composants. Si un site est bloqué ou a changé d'adresse, modifie le lien dans « Liens »."/>
+                       Text="{DynamicResource L_SitesHelp}"/>
           </DockPanel>
           <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel x:Name="SitesPanel"/>
@@ -526,12 +527,12 @@
           </Grid.RowDefinitions>
           <DockPanel Margin="0,0,0,12">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-              <Button x:Name="BtnLinksReset" Content="Rétablir les liens automatiques" Style="{StaticResource BtnLink}" Margin="0,0,8,0"/>
-              <Button x:Name="BtnLinkAdd" Content="Ajouter un lien" Style="{StaticResource BtnSmall}" Margin="0,0,8,0"/>
-              <Button x:Name="BtnLinksSave" Content="Enregistrer" Style="{StaticResource BtnPrimary}" Padding="14,6"/>
+              <Button x:Name="BtnLinksReset" Content="{DynamicResource L_LinksReset}" Style="{StaticResource BtnLink}" Margin="0,0,8,0"/>
+              <Button x:Name="BtnLinkAdd" Content="{DynamicResource L_LinkAdd}" Style="{StaticResource BtnSmall}" Margin="0,0,8,0"/>
+              <Button x:Name="BtnLinksSave" Content="{DynamicResource L_Save}" Style="{StaticResource BtnPrimary}" Padding="14,6"/>
             </StackPanel>
             <TextBlock Style="{StaticResource Muted}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0"
-                       Text="Modifie, ajoute ou supprime des liens, puis clique sur « Enregistrer ». Un lien modifié à la main n'est plus jamais remplacé automatiquement."/>
+                       Text="{DynamicResource L_LinksHelp}"/>
           </DockPanel>
           <Grid Grid.Row="1" Margin="17,0,14,6">
             <Grid.ColumnDefinitions>
@@ -540,9 +541,9 @@
               <ColumnDefinition Width="2*"/>
               <ColumnDefinition Width="170"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="CATÉGORIE" Style="{StaticResource Muted}" FontSize="11" FontWeight="SemiBold"/>
-            <TextBlock Grid.Column="1" Text="NOM" Style="{StaticResource Muted}" FontSize="11" FontWeight="SemiBold"/>
-            <TextBlock Grid.Column="2" Text="ADRESSE" Style="{StaticResource Muted}" FontSize="11" FontWeight="SemiBold"/>
+            <TextBlock Text="{DynamicResource L_ColCategory}" Style="{StaticResource Muted}" FontSize="11" FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="1" Text="{DynamicResource L_ColName}" Style="{StaticResource Muted}" FontSize="11" FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="2" Text="{DynamicResource L_ColAddress}" Style="{StaticResource Muted}" FontSize="11" FontWeight="SemiBold"/>
           </Grid>
           <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
             <StackPanel x:Name="LinksPanel"/>
@@ -555,50 +556,50 @@
 
             <Border Style="{StaticResource Card}" Margin="0,0,0,10">
               <StackPanel>
-                <TextBlock Text="Vérification automatique" Style="{StaticResource SectionTitle}"/>
-                <TextBlock Text="Quand Driver cherche des mises à jour en arrière-plan, après l'ouverture de ta session." Style="{StaticResource Muted}" Margin="0,2,0,10"/>
+                <TextBlock Text="{DynamicResource L_SetCheckTitle}" Style="{StaticResource SectionTitle}"/>
+                <TextBlock Text="{DynamicResource L_SetCheckHelp}" Style="{StaticResource Muted}" Margin="0,2,0,10"/>
                 <WrapPanel>
-                  <RadioButton x:Name="RbFreqStartup" GroupName="Freq" Style="{StaticResource Segment}" Content="À chaque démarrage"/>
-                  <RadioButton x:Name="RbFreqDaily" GroupName="Freq" Style="{StaticResource Segment}" Content="Une fois par jour"/>
-                  <RadioButton x:Name="RbFreqWeekly" GroupName="Freq" Style="{StaticResource Segment}" Content="Une fois par semaine"/>
-                  <RadioButton x:Name="RbFreqNever" GroupName="Freq" Style="{StaticResource Segment}" Content="Jamais"/>
+                  <RadioButton x:Name="RbFreqStartup" GroupName="Freq" Style="{StaticResource Segment}" Content="{DynamicResource L_FreqStartup}"/>
+                  <RadioButton x:Name="RbFreqDaily" GroupName="Freq" Style="{StaticResource Segment}" Content="{DynamicResource L_FreqDaily}"/>
+                  <RadioButton x:Name="RbFreqWeekly" GroupName="Freq" Style="{StaticResource Segment}" Content="{DynamicResource L_FreqWeekly}"/>
+                  <RadioButton x:Name="RbFreqNever" GroupName="Freq" Style="{StaticResource Segment}" Content="{DynamicResource L_FreqNever}"/>
                 </WrapPanel>
                 <CheckBox x:Name="ChkNotify" Style="{StaticResource Toggle}" Margin="0,14,0,0"
-                          Content="Afficher une notification au lieu d'ouvrir directement la fenêtre"/>
+                          Content="{DynamicResource L_SetNotify}"/>
               </StackPanel>
             </Border>
 
             <Border Style="{StaticResource Card}" Margin="0,0,0,10">
               <StackPanel>
-                <TextBlock Text="Pilote NVIDIA" Style="{StaticResource SectionTitle}"/>
-                <TextBlock Text="Game Ready : optimisé pour les jeux, mis à jour souvent. Studio : plus stable, pour la création (vidéo, 3D)." Style="{StaticResource Muted}" Margin="0,2,0,10" TextWrapping="Wrap"/>
+                <TextBlock Text="{DynamicResource L_SetNvidiaTitle}" Style="{StaticResource SectionTitle}"/>
+                <TextBlock Text="{DynamicResource L_SetNvidiaHelp}" Style="{StaticResource Muted}" Margin="0,2,0,10" TextWrapping="Wrap"/>
                 <WrapPanel>
-                  <RadioButton x:Name="RbGameReady" GroupName="Nvidia" Style="{StaticResource Segment}" Content="Game Ready (jeux)"/>
-                  <RadioButton x:Name="RbStudio" GroupName="Nvidia" Style="{StaticResource Segment}" Content="Studio (création)"/>
+                  <RadioButton x:Name="RbGameReady" GroupName="Nvidia" Style="{StaticResource Segment}" Content="{DynamicResource L_GameReady}"/>
+                  <RadioButton x:Name="RbStudio" GroupName="Nvidia" Style="{StaticResource Segment}" Content="{DynamicResource L_Studio}"/>
                 </WrapPanel>
               </StackPanel>
             </Border>
 
             <Border Style="{StaticResource Card}" Margin="0,0,0,10">
               <StackPanel>
-                <TextBlock Text="Thème" Style="{StaticResource SectionTitle}"/>
+                <TextBlock Text="{DynamicResource L_SetTheme}" Style="{StaticResource SectionTitle}"/>
                 <WrapPanel Margin="0,10,0,0">
-                  <RadioButton x:Name="RbLight" GroupName="Theme" Style="{StaticResource Segment}" Content="Clair"/>
-                  <RadioButton x:Name="RbDark" GroupName="Theme" Style="{StaticResource Segment}" Content="Sombre"/>
+                  <RadioButton x:Name="RbLight" GroupName="Theme" Style="{StaticResource Segment}" Content="{DynamicResource L_ThemeLight}"/>
+                  <RadioButton x:Name="RbDark" GroupName="Theme" Style="{StaticResource Segment}" Content="{DynamicResource L_ThemeDark}"/>
                 </WrapPanel>
               </StackPanel>
             </Border>
 
             <Border Style="{StaticResource Card}" Margin="0,0,0,10">
               <StackPanel>
-                <TextBlock Text="Sauvegardes des pilotes" Style="{StaticResource SectionTitle}"/>
+                <TextBlock Text="{DynamicResource L_SetBackupTitle}" Style="{StaticResource SectionTitle}"/>
                 <TextBlock Style="{StaticResource Muted}" Margin="0,2,0,10" TextWrapping="Wrap"
-                           Text="Avant chaque installation, Driver sauvegarde le pilote actuel pour pouvoir revenir en arrière. Au-delà de la limite, les sauvegardes les plus anciennes de ce pilote sont supprimées automatiquement."/>
+                           Text="{DynamicResource L_SetBackupHelp}"/>
                 <WrapPanel>
-                  <RadioButton x:Name="RbKeep1" GroupName="Keep" Style="{StaticResource Segment}" Content="1 version"/>
-                  <RadioButton x:Name="RbKeep2" GroupName="Keep" Style="{StaticResource Segment}" Content="2 versions"/>
-                  <RadioButton x:Name="RbKeep3" GroupName="Keep" Style="{StaticResource Segment}" Content="3 versions"/>
-                  <RadioButton x:Name="RbKeep5" GroupName="Keep" Style="{StaticResource Segment}" Content="5 versions"/>
+                  <RadioButton x:Name="RbKeep1" GroupName="Keep" Style="{StaticResource Segment}" Content="{DynamicResource L_Keep1}"/>
+                  <RadioButton x:Name="RbKeep2" GroupName="Keep" Style="{StaticResource Segment}" Content="{DynamicResource L_Keep2}"/>
+                  <RadioButton x:Name="RbKeep3" GroupName="Keep" Style="{StaticResource Segment}" Content="{DynamicResource L_Keep3}"/>
+                  <RadioButton x:Name="RbKeep5" GroupName="Keep" Style="{StaticResource Segment}" Content="{DynamicResource L_Keep5}"/>
                 </WrapPanel>
                 <TextBlock x:Name="BackupSizeText" Style="{StaticResource Muted}" Margin="0,10,0,0"/>
               </StackPanel>
@@ -606,10 +607,46 @@
 
             <Border Style="{StaticResource Card}" Margin="0,0,0,10">
               <StackPanel>
-                <TextBlock Text="Mises à jour ignorées" Style="{StaticResource SectionTitle}"/>
-                <TextBlock Text="Une version ignorée n'est plus proposée. Une version plus récente du même pilote le sera de nouveau." Style="{StaticResource Muted}" Margin="0,2,0,8" TextWrapping="Wrap"/>
+                <TextBlock Text="{DynamicResource L_SetIgnoredTitle}" Style="{StaticResource SectionTitle}"/>
+                <TextBlock Text="{DynamicResource L_SetIgnoredHelp}" Style="{StaticResource Muted}" Margin="0,2,0,8" TextWrapping="Wrap"/>
                 <StackPanel x:Name="IgnoredPanel"/>
-                <TextBlock x:Name="IgnoredEmpty" Text="Aucune mise à jour ignorée." Style="{StaticResource Muted}" FontStyle="Italic"/>
+                <TextBlock x:Name="IgnoredEmpty" Text="{DynamicResource L_NoIgnored}" Style="{StaticResource Muted}" FontStyle="Italic"/>
+              </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+              <StackPanel>
+                <TextBlock Text="{DynamicResource L_SetLangTitle}" Style="{StaticResource SectionTitle}"/>
+                <WrapPanel Margin="0,10,0,0">
+                  <RadioButton x:Name="RbLangFr" GroupName="Lang" Style="{StaticResource Segment}" Content="Français"/>
+                  <RadioButton x:Name="RbLangEn" GroupName="Lang" Style="{StaticResource Segment}" Content="English"/>
+                </WrapPanel>
+                <TextBlock Text="{DynamicResource L_SetZoomTitle}" Style="{StaticResource SectionTitle}" Margin="0,16,0,0"/>
+                <WrapPanel Margin="0,10,0,0">
+                  <RadioButton x:Name="RbZoom100" GroupName="Zoom" Style="{StaticResource Segment}" Content="100 %"/>
+                  <RadioButton x:Name="RbZoom115" GroupName="Zoom" Style="{StaticResource Segment}" Content="115 %"/>
+                  <RadioButton x:Name="RbZoom130" GroupName="Zoom" Style="{StaticResource Segment}" Content="130 %"/>
+                </WrapPanel>
+              </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+              <StackPanel>
+                <TextBlock Text="{DynamicResource L_SetProvidersTitle}" Style="{StaticResource SectionTitle}"/>
+                <TextBlock Text="{DynamicResource L_SetProvidersHelp}" Style="{StaticResource Muted}" Margin="0,2,0,10" TextWrapping="Wrap"/>
+                <CheckBox x:Name="ChkProvNvidia" Style="{StaticResource Toggle}" Content="{DynamicResource L_ProvNvidia}"/>
+                <CheckBox x:Name="ChkProvWu" Style="{StaticResource Toggle}" Content="{DynamicResource L_ProvWu}" Margin="0,10,0,0"/>
+              </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+              <StackPanel>
+                <TextBlock Text="{DynamicResource L_SetTransferTitle}" Style="{StaticResource SectionTitle}"/>
+                <TextBlock Text="{DynamicResource L_SetTransferHelp}" Style="{StaticResource Muted}" Margin="0,2,0,10" TextWrapping="Wrap"/>
+                <WrapPanel>
+                  <Button x:Name="BtnExport" Content="{DynamicResource L_Export}" Style="{StaticResource BtnSmall}" Margin="0,0,8,0"/>
+                  <Button x:Name="BtnImport" Content="{DynamicResource L_Import}" Style="{StaticResource BtnSmall}"/>
+                </WrapPanel>
               </StackPanel>
             </Border>
 
@@ -617,8 +654,15 @@
               <StackPanel>
                 <TextBlock Text="Driver" Style="{StaticResource SectionTitle}"/>
                 <TextBlock x:Name="AppVersionText" Style="{StaticResource Muted}" Margin="0,2,0,10"/>
-                <CheckBox x:Name="ChkAutoUpdate" Style="{StaticResource Toggle}" Content="Vérifier automatiquement les nouvelles versions de Driver"/>
-                <Button x:Name="BtnCheckAppUpdate" Content="Vérifier maintenant" Style="{StaticResource BtnSmall}" HorizontalAlignment="Left" Margin="0,12,0,0"/>
+                <CheckBox x:Name="ChkAutoUpdate" Style="{StaticResource Toggle}" Content="{DynamicResource L_SetAutoUpdate}"/>
+                <Button x:Name="BtnCheckAppUpdate" Content="{DynamicResource L_CheckNow}" Style="{StaticResource BtnSmall}" HorizontalAlignment="Left" Margin="0,12,0,0"/>
+                <TextBlock Text="{DynamicResource L_SetRepoTitle}" FontWeight="SemiBold" Margin="0,16,0,2"/>
+                <TextBlock Text="{DynamicResource L_SetRepoHelp}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                <DockPanel>
+                  <Button x:Name="BtnRepoReset" DockPanel.Dock="Right" Content="{DynamicResource L_Default}" Style="{StaticResource BtnLink}" Margin="6,0,0,0"/>
+                  <Button x:Name="BtnRepoSave" DockPanel.Dock="Right" Content="{DynamicResource L_Save}" Style="{StaticResource BtnSmall}" Margin="8,0,0,0"/>
+                  <TextBox x:Name="TxtRepo" MaxWidth="420" HorizontalAlignment="Left" MinWidth="300"/>
+                </DockPanel>
               </StackPanel>
             </Border>
           </StackPanel>
