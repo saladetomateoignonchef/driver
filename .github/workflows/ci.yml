@@ -21,6 +21,16 @@ jobs:
         shell: powershell
         run: |
           $errors = 0
+          # Sans BOM UTF-8, Windows PowerShell 5.1 lit le fichier en ANSI : les accents et les
+          # tirets typographiques deviennent des guillemets parasites.
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+            $bytes = [IO.File]::ReadAllBytes($_.FullName)
+            $hasBom = $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF
+            if (-not $hasBom -and @($bytes | Where-Object { $_ -gt 127 }).Count) {
+              Write-Host "::error file=$($_.Name)::Fichier non ASCII sans BOM UTF-8"
+              $errors++
+            }
+          }
           Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
             $tokens = $null; $parseErrors = $null
             [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$parseErrors)
