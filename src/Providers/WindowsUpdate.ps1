@@ -28,9 +28,12 @@ function Get-WindowsUpdateDriverUpdate {
         $device  = Find-InventoryDevice -Inventory $Inventory -HardwareId $u.DriverHardwareID
         $name    = if ($device) { $device.Name } else { $u.DriverModel }
         $current = if ($device) { $device.DriverVersion } else { '?' }
+        $newVer  = Get-VersionFromText -Text $u.Title
+        if (-not $newVer -and $u.DriverVerDate) { $newVer = 'du {0:dd/MM/yyyy}' -f [datetime]$u.DriverVerDate }
+        Write-Log "Windows Update : '$($u.Title)' pour $name"
 
         New-UpdateCandidate -Source 'Windows Update' -Device $name -CurrentVersion $current `
-            -NewVersion (Get-VersionFromText -Text $u.Title) `
+            -NewVersion $newVer `
             -SizeMB ([math]::Round($u.MaxDownloadSize / 1MB, 1)) `
             -Key $u.Identity.UpdateID -Title $u.Title |
             Add-Member -NotePropertyName DriverClass -NotePropertyValue $u.DriverClass -PassThru |

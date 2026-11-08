@@ -19,6 +19,9 @@ Describe 'Get-VersionFromText' {
     It 'extrait la version en fin de titre Windows Update' {
         Get-VersionFromText -Text 'Intel - System - 10.1.31.2' | Should -Be '10.1.31.2'
     }
+    It 'trouve la version même au milieu du titre' {
+        Get-VersionFromText -Text 'Realtek - 10.72.524.2024 - Net' | Should -Be '10.72.524.2024'
+    }
     It 'renvoie $null sans version' {
         Get-VersionFromText -Text 'Pilote sans version' | Should -BeNullOrEmpty
     }

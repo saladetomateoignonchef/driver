@@ -71,6 +71,15 @@ Un raccourci **Driver** apparaît sur le Bureau, et la vérification se fera à 
 powershell.exe -ExecutionPolicy Bypass -File .\DriverUpdater.ps1
 ```
 
+## Dépannage
+
+**« l'exécution de scripts est désactivée sur ce système »** : Windows bloque les scripts par défaut.
+Pour autoriser les scripts dans la fenêtre PowerShell ouverte uniquement (rien n'est modifié de façon permanente) :
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
 ## Journaux
 
 `C:\ProgramData\DriverUpdater\logs\AAAA-MM-JJ.log` (bouton **Journaux** dans la fenêtre).

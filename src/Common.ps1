@@ -54,7 +54,9 @@ function Get-VersionFromText {
         Exemple : "Intel - System - 10.1.31.2"  ->  10.1.31.2
     #>
     param([string]$Text)
-    if ($Text -match '(\d+(?:\.\d+){1,3})\s*$') { return $Matches[1] }
+    if (-not $Text) { return $null }
+    $found = [regex]::Matches($Text, '\d+(?:\.\d+){2,3}')
+    if ($found.Count -gt 0) { return $found[$found.Count - 1].Value }
     return $null
 }
 

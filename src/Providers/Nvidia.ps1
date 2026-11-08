@@ -54,6 +54,22 @@ function Get-NvidiaLatestDriver {
     }
 }
 
+function Get-NvidiaDownloadSize {
+    <# Taille en Mo : d'abord depuis le texte renvoyé par l'API, sinon via l'en-tête Content-Length. #>
+    param([string]$Url, [string]$SizeText)
+    if ($SizeText -match '([\d]+(?:[\.,]\d+)?)\s*(MB|Mo)') {
+        return [double]($Matches[1] -replace ',', '.')
+    }
+    try {
+        $head = Invoke-WebRequest -Uri $Url -Method Head -UseBasicParsing -UserAgent $script:UserAgent -TimeoutSec 15
+        $len  = [double]([string]$head.Headers['Content-Length'])
+        if ($len -gt 0) { return [math]::Round($len / 1MB, 1) }
+    } catch {
+        Write-Log "NVIDIA : taille du fichier inconnue ($($_.Exception.Message))" 'WARN'
+    }
+    return 0
+}
+
 function Get-NvidiaUpdate {
     <# Renvoie un "candidat" pour chaque carte NVIDIA dont le pilote est dépassé. #>
     param([Parameter(Mandatory)][object[]]$Inventory)
@@ -71,8 +87,7 @@ function Get-NvidiaUpdate {
         Write-Log "NVIDIA : dernière version disponible $($latest.Version)"
 
         if ((Compare-DriverVersion -A $latest.Version -B $current) -eq 1) {
-            $sizeMB = 0
-            if ($latest.Size -match '([\d\.]+)\s*MB') { $sizeMB = [double]$Matches[1] }
+            $sizeMB = Get-NvidiaDownloadSize -Url $latest.Url -SizeText $latest.Size
             New-UpdateCandidate -Source 'NVIDIA' -Device $gpu.Name -CurrentVersion $current `
                 -NewVersion $latest.Version -SizeMB $sizeMB -Key $latest.Url -Title $latest.Name
         }
