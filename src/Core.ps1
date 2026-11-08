@@ -4,7 +4,8 @@
 
 function Find-DriverUpdate {
     <# Interroge tous les fournisseurs et renvoie la liste des mises à jour disponibles. #>
-    $inventory = @(Get-DeviceInventory)
+    param([object[]]$Inventory)
+    $inventory = if ($Inventory) { @($Inventory) } else { @(Get-DeviceInventory) }
     Write-Log "Inventaire : $($inventory.Count) périphérique(s) avec pilote"
 
     $results    = New-Object System.Collections.Generic.List[object]

@@ -1,14 +1,131 @@
 ﻿# =============================================================================
-#  Gui.ps1 - Fenêtre graphique (Windows Forms)
+#  Gui.ps1 - Interface graphique "tableau de bord" (WPF)
 #
-#  Les opérations longues (recherche, installation) tournent dans un job
-#  PowerShell en arrière-plan pour que la fenêtre ne se fige pas. Un Timer
-#  vérifie toutes les 500 ms si le job est terminé.
+#  La mise en page est décrite dans MainWindow.xaml ; ce fichier la charge,
+#  la remplit avec les données et réagit aux clics.
+#  Les opérations longues (recherche, analyse de paquet, installation) tournent
+#  dans un job PowerShell en arrière-plan ; un DispatcherTimer vérifie toutes les
+#  500 ms si le job est terminé, pour que la fenêtre ne se fige jamais.
 # =============================================================================
 
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-. (Join-Path $PSScriptRoot 'DropTarget.ps1')
+. (Join-Path $PSScriptRoot 'DropTarget.ps1')   # charge aussi WPF
+
+# ---------- Petites fonctions d'aide pour créer des éléments WPF ----------
+$script:BrushConverter = New-Object System.Windows.Media.BrushConverter
+function Get-Brush([string]$Hex) { return $script:BrushConverter.ConvertFromString($Hex) }
+function New-Thickness([double]$L, [double]$T, [double]$R, [double]$B) { return New-Object System.Windows.Thickness($L, $T, $R, $B) }
+
+function New-Text {
+    param([string]$Text, [double]$Size = 13, [string]$Color = '#17202A', [switch]$Bold, [switch]$SemiBold)
+    $tb = New-Object System.Windows.Controls.TextBlock
+    $tb.Text         = $Text
+    $tb.FontSize     = $Size
+    $tb.Foreground   = Get-Brush $Color
+    $tb.TextTrimming = 'CharacterEllipsis'
+    if ($Bold)     { $tb.FontWeight = [System.Windows.FontWeights]::Bold }
+    if ($SemiBold) { $tb.FontWeight = [System.Windows.FontWeights]::SemiBold }
+    return $tb
+}
+
+# Icônes (tracés vectoriels) et couleurs par type de composant
+$script:Icons = @{
+    gpu     = @{ Data = 'M1.5,4 L16.5,4 L16.5,14 L1.5,14 Z M13.4,9 A2.4,2.4 0 1 1 8.6,9 A2.4,2.4 0 1 1 13.4,9'; Bg = '#ECFCCB'; Fg = '#4D7C0F' }
+    audio   = @{ Data = 'M3,7 L3,11 M6,5 L6,13 M9,3 L9,15 M12,5 L12,13 M15,7 L15,11'; Bg = '#E0F2FE'; Fg = '#0369A1' }
+    effect  = @{ Data = 'M3,7 L3,11 M6,5 L6,13 M9,3 L9,15 M12,5 L12,13 M15,7 L15,11'; Bg = '#F3E8FF'; Fg = '#7E22CE' }
+    net     = @{ Data = 'M2,12 L16,12 M4,12 L4,6 L14,6 L14,12 M7,9 L11,9'; Bg = '#F1F5F9'; Fg = '#475569' }
+    chipset = @{ Data = 'M2,2 L16,2 L16,16 L2,16 Z M6,6 L12,6 L12,12 L6,12 Z'; Bg = '#DBEAFE'; Fg = '#1D4ED8' }
+    bt      = @{ Data = 'M6,5 L12,11 L9,14 L9,2 L12,5 L6,11'; Bg = '#E0E7FF'; Fg = '#4338CA' }
+    storage = @{ Data = 'M2,5 L16,5 L16,13 L2,13 Z M5,9 L9,9'; Bg = '#FCE7F3'; Fg = '#BE185D' }
+    other   = @{ Data = 'M3,3 L15,3 L15,15 L3,15 Z M6,7 L12,7 M6,10 L12,10'; Bg = '#F1F5F9'; Fg = '#475569' }
+}
+
+function New-IconBadge([string]$Kind, [double]$Size = 36) {
+    $ic = $script:Icons[$Kind]
+    if (-not $ic) { $ic = $script:Icons['other'] }
+    $bd = New-Object System.Windows.Controls.Border
+    $bd.Width = $Size; $bd.Height = $Size
+    $bd.CornerRadius = New-Object System.Windows.CornerRadius(9)
+    $bd.Background   = Get-Brush $ic.Bg
+    $path = New-Object System.Windows.Shapes.Path
+    $path.Data            = [System.Windows.Media.Geometry]::Parse($ic.Data)
+    $path.Stroke          = Get-Brush $ic.Fg
+    $path.StrokeThickness = 1.6
+    $path.Width = 18; $path.Height = 18
+    $path.Stretch = 'Uniform'
+    $path.HorizontalAlignment = 'Center'; $path.VerticalAlignment = 'Center'
+    $bd.Child = $path
+    return $bd
+}
+
+function New-Pill([string]$Text, [bool]$Warn) {
+    $bd = New-Object System.Windows.Controls.Border
+    $bd.CornerRadius = New-Object System.Windows.CornerRadius(10)
+    $bd.Padding      = New-Thickness 10 3 10 3
+    $bd.HorizontalAlignment = 'Left'
+    if ($Warn) { $bd.Background = Get-Brush '#FEF3C7'; $color = '#92400E' } else { $bd.Background = Get-Brush '#DCFCE7'; $color = '#166534' }
+    $bd.Child = New-Text $Text 11.5 $color -SemiBold
+    return $bd
+}
+
+function New-VersionText([string]$Current, [string]$New) {
+    $tb = New-Object System.Windows.Controls.TextBlock
+    $tb.FontFamily   = New-Object System.Windows.Media.FontFamily('Consolas')
+    $tb.FontSize     = 12.5
+    $tb.Foreground   = Get-Brush '#5D6B78'
+    $tb.TextTrimming = 'CharacterEllipsis'
+    [void]$tb.Inlines.Add((New-Object System.Windows.Documents.Run([string]$Current)))
+    if ($New) {
+        [void]$tb.Inlines.Add((New-Object System.Windows.Documents.Run('  →  ')))
+        $run = New-Object System.Windows.Documents.Run([string]$New)
+        $run.Foreground = Get-Brush '#0F766E'
+        $run.FontWeight = [System.Windows.FontWeights]::Bold
+        [void]$tb.Inlines.Add($run)
+    }
+    return $tb
+}
+
+function Format-Size([double]$SizeMB) {
+    if ($SizeMB -ge 1000) { return ('{0:N1} Go' -f ($SizeMB / 1024)) }
+    if ($SizeMB -gt 0)    { return ('{0:N0} Mo' -f $SizeMB) }
+    return ''
+}
+
+function Get-ComponentList {
+    <# Les composants principaux du PC, un par carte du tableau de bord. #>
+    param([object[]]$Inventory)
+    $rules = @(
+        @{ Kind = 'gpu';     Title = 'Carte graphique'; Test = { $_.Class -eq 'DISPLAY' -and $_.HardwareId -like 'PCI\*' } }
+        @{ Kind = 'audio';   Title = 'Audio';           Test = { $_.Class -eq 'MEDIA' -and $_.HardwareId -like 'HDAUDIO\*' -and $_.VendorId -ne '10DE' } }
+        @{ Kind = 'net';     Title = 'Réseau';          Test = { $_.Class -eq 'NET' -and $_.HardwareId -like 'PCI\*' } }
+        @{ Kind = 'chipset'; Title = 'Chipset';         Test = { $_.Class -eq 'SYSTEM' -and $_.Name -match 'LPC|Chipset' } }
+        @{ Kind = 'bt';      Title = 'Bluetooth';       Test = { $_.Class -eq 'BLUETOOTH' -and $_.HardwareId -like 'USB\*' } }
+        @{ Kind = 'storage'; Title = 'Stockage';        Test = { $_.Class -in @('SCSIADAPTER', 'HDC') -and $_.HardwareId -like 'PCI\*' } }
+    )
+    foreach ($r in $rules) {
+        $dev = $Inventory | Where-Object -FilterScript $r.Test | Select-Object -First 1
+        if ($dev) {
+            [pscustomobject]@{
+                Kind    = $r.Kind
+                Title   = $r.Title
+                Device  = $dev.Name
+                Label   = (($dev.Name -replace '\((R|TM)\)', '') -replace '\s+', ' ').Trim()
+                Version = $dev.DriverVersion
+            }
+        }
+    }
+}
+
+function Get-KindFromClass([string]$DriverClass) {
+    switch -Regex ($DriverClass) {
+        'Display'         { return @{ Kind = 'gpu';     Title = 'Carte graphique' } }
+        'AudioProcessing' { return @{ Kind = 'effect';  Title = 'Effets audio' } }
+        'Media|Audio'     { return @{ Kind = 'audio';   Title = 'Audio' } }
+        'Net'             { return @{ Kind = 'net';     Title = 'Réseau' } }
+        'Bluetooth'       { return @{ Kind = 'bt';      Title = 'Bluetooth' } }
+        'System'          { return @{ Kind = 'chipset'; Title = 'Système' } }
+        default           { return @{ Kind = 'other';   Title = 'Pilote' } }
+    }
+}
 
 function Show-MainWindow {
     param(
@@ -16,138 +133,286 @@ function Show-MainWindow {
         [switch]$AutoSearch          # lance une recherche dès l'ouverture
     )
 
-    [System.Windows.Forms.Application]::EnableVisualStyles()
-    $script:CurrentJob = $null
-    $script:JobKind    = $null
-    $script:LastResults   = @()
-    $script:VendorDrivers = $null
-
-    # ---------- Fenêtre ----------
-    $form = New-Object System.Windows.Forms.Form
-    $form.Text          = 'Driver - Mise à jour des pilotes  (glisse ici un ZIP de pilotes pour l''installer)'
-    $form.Size          = New-Object System.Drawing.Size(1080, 580)
-    $form.MinimumSize   = New-Object System.Drawing.Size(720, 400)
-    $form.StartPosition = 'CenterScreen'
-    $form.Font          = New-Object System.Drawing.Font('Segoe UI', 9)
-
-    # ---------- Bandeau d'état (haut) ----------
-    $lblStatus = New-Object System.Windows.Forms.Label
-    $lblStatus.Dock      = 'Top'
-    $lblStatus.Height    = 40
-    $lblStatus.TextAlign = 'MiddleLeft'
-    $lblStatus.Padding   = New-Object System.Windows.Forms.Padding(10, 0, 0, 0)
-    $lblStatus.Font      = New-Object System.Drawing.Font('Segoe UI', 10, [System.Drawing.FontStyle]::Bold)
-
-    # ---------- Liste des mises à jour ----------
-    $list = New-Object System.Windows.Forms.ListView
-    $list.Dock          = 'Fill'
-    $list.View          = 'Details'
-    $list.CheckBoxes    = $true
-    $list.FullRowSelect = $true
-    $list.GridLines     = $true
-    foreach ($col in @(@('Périphérique', 330), @('Source', 120), @('Version actuelle', 140), @('Nouvelle version', 140), @('Taille', 80))) {
-        [void]$list.Columns.Add($col[0], $col[1])
+    # ---------- Chargement de la fenêtre ----------
+    [xml]$xaml = Get-Content -Path (Join-Path $PSScriptRoot 'MainWindow.xaml') -Raw -Encoding UTF8
+    $window = [System.Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
+    $ui = @{}
+    foreach ($name in @('NavDashboard', 'NavUpdates', 'NavAll', 'NavPackage', 'NavBoard', 'NavLogs', 'UpdatesBadge', 'UpdatesBadgeText',
+                        'PcName', 'PcInfo', 'PageTitle', 'StatusText', 'BtnSearch', 'BtnInstall', 'Busy',
+                        'ViewDashboard', 'ViewUpdates', 'ViewAll', 'KpiDevices', 'KpiUpdates', 'ChkRestore',
+                        'CardsPanel', 'DropZone', 'ActivityText', 'UpdatesPanel', 'UpdatesEmpty', 'AllGrid')) {
+        $ui[$name] = $window.FindName($name)
     }
 
-    # ---------- Barre du bas : options + boutons ----------
-    $panel = New-Object System.Windows.Forms.FlowLayoutPanel
-    $panel.Dock          = 'Bottom'
-    $panel.AutoSize      = $true             # passe sur 2 lignes si la fenêtre est étroite
-    $panel.AutoSizeMode  = 'GrowAndShrink'
-    $panel.Padding       = New-Object System.Windows.Forms.Padding(8)
-    $panel.FlowDirection = 'LeftToRight'
-
-    $btnSearch  = New-Object System.Windows.Forms.Button -Property @{ Text = 'Rechercher'; Width = 110; Height = 30 }
-    $btnInstall = New-Object System.Windows.Forms.Button -Property @{ Text = 'Installer la sélection'; Width = 160; Height = 30; Enabled = $false }
-    $btnPackage = New-Object System.Windows.Forms.Button -Property @{ Text = 'Installer un paquet…'; Width = 140; Height = 30 }
-    $btnBoard   = New-Object System.Windows.Forms.Button -Property @{ Text = 'Site carte mère'; Width = 120; Height = 30 }
-    $btnLogs    = New-Object System.Windows.Forms.Button -Property @{ Text = 'Journaux'; Width = 90; Height = 30 }
-    $btnClose   = New-Object System.Windows.Forms.Button -Property @{ Text = 'Fermer'; Width = 90; Height = 30 }
-    $chkAll     = New-Object System.Windows.Forms.CheckBox -Property @{ Text = 'Afficher tous les pilotes'; Checked = $false; AutoSize = $true; Margin = (New-Object System.Windows.Forms.Padding(12, 8, 0, 0)) }
-    $chkRestore = New-Object System.Windows.Forms.CheckBox -Property @{ Text = 'Créer un point de restauration'; Checked = $true; AutoSize = $true; Margin = (New-Object System.Windows.Forms.Padding(12, 8, 12, 0)) }
-    $progress   = New-Object System.Windows.Forms.ProgressBar -Property @{ Width = 150; Height = 20; Style = 'Marquee'; Visible = $false; Margin = (New-Object System.Windows.Forms.Padding(6, 6, 0, 0)) }
-
-    $panel.Controls.AddRange(@($btnSearch, $btnInstall, $btnPackage, $chkRestore, $chkAll, $btnBoard, $btnLogs, $btnClose, $progress))
-    $form.Controls.Add($lblStatus)
-    $form.Controls.Add($panel)
-    $form.Controls.Add($list)
-    $list.BringToFront()   # la zone "Fill" doit être devant pour respecter les zones Top/Bottom
+    $script:CurrentJob   = $null
+    $script:JobKind      = $null
+    $script:Updates      = @()
+    $script:Inventory    = $null
+    $script:UpdateChecks = New-Object System.Collections.Generic.List[object]
+    $script:LastSearch   = $null
+    $script:Board        = $null
 
     # ---------- Fonctions internes ----------
-    function Set-Busy([bool]$Busy, [string]$Text) {
-        $lblStatus.Text      = $Text
-        $progress.Visible    = $Busy
-        $btnSearch.Enabled   = -not $Busy
-        $btnInstall.Enabled  = (-not $Busy) -and ($list.Items.Count -gt 0)
-        $form.UseWaitCursor  = $Busy
+    function Show-Message([string]$Text, [string]$Title = 'Driver', [string]$Buttons = 'OK', [string]$Icon = 'Information') {
+        return [System.Windows.MessageBox]::Show($window, $Text, $Title, $Buttons, $Icon)
     }
 
-    function Update-ResultList([object[]]$Results) {
-        $script:LastResults = @($Results | Where-Object { $_ })
-        $list.BeginUpdate()
-        $list.Items.Clear()
-        foreach ($r in $script:LastResults) {
-            if (-not $r) { continue }
-            $item = New-Object System.Windows.Forms.ListViewItem([string]$r.Device)
-            [void]$item.SubItems.Add([string]$r.Source)
-            [void]$item.SubItems.Add([string]$r.CurrentVersion)
-            [void]$item.SubItems.Add([string]$r.NewVersion)
-            $size = if ($r.SizeMB -gt 0) { '{0} Mo' -f $r.SizeMB } else { '-' }
-            [void]$item.SubItems.Add($size)
-            $item.ToolTipText = [string]$r.Title
-            $item.Checked = $true
-            $item.Tag     = $r
-            [void]$list.Items.Add($item)
+    function Set-View([string]$Name) {
+        $views  = @{ dashboard = 'ViewDashboard'; updates = 'ViewUpdates'; all = 'ViewAll' }
+        $navs   = @{ dashboard = 'NavDashboard';  updates = 'NavUpdates';  all = 'NavAll' }
+        $titles = @{ dashboard = 'Tableau de bord'; updates = 'Mises à jour'; all = 'Tous les pilotes' }
+        foreach ($k in @($views.Keys)) {
+            $on = ($k -eq $Name)
+            $ui[$views[$k]].Visibility = if ($on) { 'Visible' } else { 'Collapsed' }
+            $ui[$navs[$k]].Background  = if ($on) { Get-Brush '#1D3A55' } else { [System.Windows.Media.Brushes]::Transparent }
+            $ui[$navs[$k]].Foreground  = if ($on) { [System.Windows.Media.Brushes]::White } else { Get-Brush '#B8C7D6' }
+        }
+        $ui.PageTitle.Text = $titles[$Name]
+    }
+
+    function Get-StatusLine {
+        if (-not $script:LastSearch) { return 'Pas encore analysé' }
+        return ('Dernière analyse : aujourd''hui à {0:HH:mm}' -f $script:LastSearch)
+    }
+
+    function Get-CheckedUpdates {
+        return @($script:UpdateChecks | Where-Object { $_.IsChecked -eq $true } | ForEach-Object { $_.Tag })
+    }
+
+    function Update-InstallButton {
+        $n = @(Get-CheckedUpdates).Count
+        $ui.BtnInstall.Content   = if ($n -gt 0) { "Installer $n mise(s) à jour" } else { 'Installer' }
+        $ui.BtnInstall.IsEnabled = ($n -gt 0) -and (-not $script:CurrentJob)
+    }
+
+    function Set-Busy([bool]$Busy, [string]$Text) {
+        $ui.StatusText.Text      = $Text
+        $ui.Busy.Visibility      = if ($Busy) { 'Visible' } else { 'Collapsed' }
+        $ui.BtnSearch.IsEnabled  = -not $Busy
+        $ui.DropZone.IsEnabled   = -not $Busy
+        $ui.NavPackage.IsEnabled = -not $Busy
+        Update-InstallButton
+        $window.Cursor = if ($Busy) { [System.Windows.Input.Cursors]::AppStarting } else { $null }
+    }
+
+    function Update-Activity {
+        # Les 4 derniers événements importants du journal du jour
+        $file  = Join-Path $script:LogDir ('{0:yyyy-MM-dd}.log' -f (Get-Date))
+        $lines = @()
+        if (Test-Path $file) {
+            $pattern = '\] (Recherche terminée|Installation validée|Point de restauration créé|NVIDIA : installateur terminé|Windows Update : .* -> Code|pnputil : code \d+|Paquet manuel : (\d+ fichier|installation validée))'
+            $lines = @(Get-Content -Path $file -Encoding UTF8 | Where-Object { $_ -match $pattern } | Select-Object -Last 4)
+        }
+        if ($lines.Count -eq 0) { $ui.ActivityText.Text = "Aucune activité aujourd'hui."; return }
+        [array]::Reverse($lines)
+        $ui.ActivityText.Text = (@($lines | ForEach-Object {
+            $msg = $_ -replace '^\S+ (\d\d:\d\d):\d\d \[\w+\] ', '$1 · '
+            if ($msg.Length -gt 78) { $msg = $msg.Substring(0, 75) + '…' }
+            $msg
+        })) -join "`n"
+    }
+
+    function Update-PcInfo {
+        $ui.PcName.Text = $env:COMPUTERNAME
+        try {
+            $os    = (Get-CimInstance Win32_OperatingSystem).Caption -replace '^Microsoft\s+', ''
+            $ram   = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB)
+            $script:Board = Get-MotherboardInfo
+            $maker = $script:Board.Manufacturer -replace '\s+Technology Co\., Ltd\.?', ''
+            $ui.PcInfo.Text = "$os`n$maker $($script:Board.Product)`n$ram Go de RAM"
+        } catch { }
+    }
+
+    function Update-Dashboard {
+        $updates = @($script:Updates | Where-Object { $_ })
+        $inv     = @($script:Inventory | Where-Object { $_ })
+
+        # Compteurs + pastille du menu
+        $ui.KpiDevices.Text       = if ($inv.Count) { [string]$inv.Count } else { '-' }
+        $ui.KpiUpdates.Text       = [string]$updates.Count
+        $ui.KpiUpdates.Foreground = if ($updates.Count) { Get-Brush '#D97706' } else { Get-Brush '#166534' }
+        $ui.UpdatesBadge.Visibility = if ($updates.Count) { 'Visible' } else { 'Collapsed' }
+        $ui.UpdatesBadgeText.Text = [string]$updates.Count
+
+        # Cartes : d'abord les mises à jour, puis les composants à jour
+        $ui.CardsPanel.Children.Clear()
+        $components = @(Get-ComponentList -Inventory $inv)
+        $used  = @{}
+        $cards = New-Object System.Collections.Generic.List[object]
+        foreach ($u in $updates) {
+            $comp = $components | Where-Object { $_.Device -eq $u.Device } | Select-Object -First 1
+            if ($comp) { $used[$comp.Device] = $true; $kind = $comp.Kind; $title = $comp.Title; $label = $comp.Label }
+            else {
+                $k = Get-KindFromClass $u.DriverClass
+                if ($u.Source -eq 'NVIDIA') { $k = @{ Kind = 'gpu'; Title = 'Carte graphique' } }
+                $kind = $k.Kind; $title = $k.Title; $label = $u.Device
+            }
+            $size = Format-Size $u.SizeMB
+            $pill = if ($size) { "Mise à jour · $size" } else { 'Mise à jour' }
+            $cards.Add(@{ Kind = $kind; Title = $title; Label = $label; Warn = $true; Pill = $pill; Current = $u.CurrentVersion; New = $u.NewVersion })
+        }
+        foreach ($c in $components) {
+            if ($used[$c.Device]) { continue }
+            $cards.Add(@{ Kind = $c.Kind; Title = $c.Title; Label = $c.Label; Warn = $false; Pill = 'À jour'; Current = $c.Version; New = $null })
         }
 
-        # Option "Afficher tous les pilotes" : on ajoute en gris ceux qui sont à jour
-        if ($chkAll.Checked) {
-            if (-not $script:VendorDrivers) { $script:VendorDrivers = @(Get-VendorDriverList) }
-            $withUpdate = @($script:LastResults | ForEach-Object { $_.Device })
-            foreach ($d in $script:VendorDrivers) {
-                if ($withUpdate -contains $d.Name) { continue }
-                $item = New-Object System.Windows.Forms.ListViewItem([string]$d.Name)
-                [void]$item.SubItems.Add([string]$d.Manufacturer)
-                [void]$item.SubItems.Add([string]$d.DriverVersion)
-                [void]$item.SubItems.Add('À jour')
-                [void]$item.SubItems.Add('')
-                $item.ForeColor   = [System.Drawing.Color]::Gray
-                $item.ToolTipText = [string]$d.HardwareId
-                $item.Tag         = $null      # rien à installer
-                [void]$list.Items.Add($item)
+        foreach ($c in $cards) {
+            $card = New-Object System.Windows.Controls.Border
+            $styleName = if ($c.Warn) { 'CardWarn' } else { 'Card' }
+            $card.Style  = $window.FindResource($styleName)
+            $card.Margin = New-Thickness 0 0 12 12
+            $stack = New-Object System.Windows.Controls.StackPanel
+
+            $head = New-Object System.Windows.Controls.DockPanel
+            $icon = New-IconBadge $c.Kind
+            [System.Windows.Controls.DockPanel]::SetDock($icon, 'Left')
+            [void]$head.Children.Add($icon)
+            $titles = New-Object System.Windows.Controls.StackPanel
+            $titles.Margin = New-Thickness 12 0 0 0
+            $titles.VerticalAlignment = 'Center'
+            [void]$titles.Children.Add((New-Text $c.Title 14 -SemiBold))
+            [void]$titles.Children.Add((New-Text $c.Label 12 '#5D6B78'))
+            [void]$head.Children.Add($titles)
+            [void]$stack.Children.Add($head)
+
+            $pillEl = New-Pill $c.Pill $c.Warn
+            $pillEl.Margin = New-Thickness 0 12 0 0
+            [void]$stack.Children.Add($pillEl)
+
+            $ver = New-VersionText $c.Current $c.New
+            $ver.Margin = New-Thickness 0 9 0 0
+            [void]$stack.Children.Add($ver)
+
+            $card.Child = $stack
+            [void]$ui.CardsPanel.Children.Add($card)
+        }
+    }
+
+    function Update-UpdatesView {
+        $ui.UpdatesPanel.Children.Clear()
+        $script:UpdateChecks.Clear()
+        $updates = @($script:Updates | Where-Object { $_ })
+        $ui.UpdatesEmpty.Visibility = if ($updates.Count) { 'Collapsed' } else { 'Visible' }
+
+        foreach ($u in $updates) {
+            $row = New-Object System.Windows.Controls.Border
+            $row.Style   = $window.FindResource('Card')
+            $row.Margin  = New-Thickness 0 0 0 8
+            $row.Padding = New-Thickness 16 12 18 12
+            $grid = New-Object System.Windows.Controls.Grid
+            foreach ($w in @('Auto', 'Auto', '*', 'Auto', 'Auto', '90')) {
+                $cd = New-Object System.Windows.Controls.ColumnDefinition
+                if ($w -eq 'Auto')   { $cd.Width = [System.Windows.GridLength]::Auto }
+                elseif ($w -eq '*')  { $cd.Width = New-Object System.Windows.GridLength(1, ([System.Windows.GridUnitType]::Star)) }
+                else                 { $cd.Width = New-Object System.Windows.GridLength([double]$w) }
+                $grid.ColumnDefinitions.Add($cd)
+            }
+
+            $chk = New-Object System.Windows.Controls.CheckBox
+            $chk.Style     = $window.FindResource('Check')
+            $chk.IsChecked = $true
+            $chk.Tag       = $u
+            $chk.VerticalAlignment = 'Center'
+            $chk.Margin = New-Thickness 0 0 14 0
+            $chk.Add_Click({ Update-InstallButton })
+            $script:UpdateChecks.Add($chk)
+            [System.Windows.Controls.Grid]::SetColumn($chk, 0); [void]$grid.Children.Add($chk)
+
+            $comp = Get-KindFromClass $u.DriverClass
+            if ($u.Source -eq 'NVIDIA') { $comp = @{ Kind = 'gpu'; Title = 'Carte graphique' } }
+            $icon = New-IconBadge $comp.Kind 34
+            $icon.Margin = New-Thickness 0 0 14 0
+            [System.Windows.Controls.Grid]::SetColumn($icon, 1); [void]$grid.Children.Add($icon)
+
+            $names = New-Object System.Windows.Controls.StackPanel
+            $names.VerticalAlignment = 'Center'
+            [void]$names.Children.Add((New-Text $u.Device 14 -SemiBold))
+            $sub = if ($u.Title) { $u.Title } else { $comp.Title }
+            [void]$names.Children.Add((New-Text $sub 12 '#5D6B78'))
+            [System.Windows.Controls.Grid]::SetColumn($names, 2); [void]$grid.Children.Add($names)
+
+            $tag = New-Object System.Windows.Controls.Border
+            $tag.CornerRadius = New-Object System.Windows.CornerRadius(10)
+            $tag.Padding    = New-Thickness 9 2 9 2
+            $tag.Margin     = New-Thickness 12 0 18 0
+            $tag.Background = Get-Brush '#F1F5F9'
+            $tag.VerticalAlignment = 'Center'
+            $tag.Child = New-Text $u.Source 11.5 '#334155'
+            [System.Windows.Controls.Grid]::SetColumn($tag, 3); [void]$grid.Children.Add($tag)
+
+            $ver = New-VersionText $u.CurrentVersion $u.NewVersion
+            $ver.VerticalAlignment = 'Center'
+            [System.Windows.Controls.Grid]::SetColumn($ver, 4); [void]$grid.Children.Add($ver)
+
+            $size = New-Text (Format-Size $u.SizeMB) 12.5 '#5D6B78'
+            $size.HorizontalAlignment = 'Right'; $size.VerticalAlignment = 'Center'
+            [System.Windows.Controls.Grid]::SetColumn($size, 5); [void]$grid.Children.Add($size)
+
+            $row.Child = $grid
+            [void]$ui.UpdatesPanel.Children.Add($row)
+        }
+        Update-InstallButton
+    }
+
+    function Update-AllView {
+        $updates = @($script:Updates | Where-Object { $_ })
+        $rows = foreach ($d in @(Get-VendorDriverList -Inventory $script:Inventory)) {
+            $u = $updates | Where-Object { $_.Device -eq $d.Name } | Select-Object -First 1
+            [pscustomobject]@{
+                Name          = $d.Name
+                Manufacturer  = $d.Manufacturer
+                DriverVersion = $d.DriverVersion
+                Status        = if ($u) { "Mise à jour : $($u.NewVersion)" } else { '✓ À jour' }
             }
         }
-        $list.EndUpdate()
-        $list.ShowItemToolTips = $true
+        $ui.AllGrid.ItemsSource = @($rows)
+    }
 
-        $count = $script:LastResults.Count
-        if ($count -eq 0) {
-            Set-Busy $false 'Tous les pilotes sont à jour.'
-        } else {
-            Set-Busy $false ("{0} mise(s) à jour disponible(s). Coche celles à installer puis clique sur « Installer la sélection »." -f $count)
-        }
-        $btnInstall.Enabled = ($count -gt 0)
+    function Update-All {
+        Update-Dashboard
+        Update-UpdatesView
+        Update-AllView
+        Update-Activity
     }
 
     function Start-Search {
-        Set-Busy $true 'Recherche des mises à jour en cours (cela peut prendre 1 à 2 minutes)...'
-        $list.Items.Clear()
-        $script:VendorDrivers = $null   # l'inventaire sera relu après la recherche
+        if ($script:CurrentJob) { return }
+        Set-Busy $true 'Analyse en cours : NVIDIA et Windows Update (1 à 2 minutes)...'
         $script:JobKind    = 'search'
         $script:CurrentJob = Start-Job -ArgumentList $script:AppRoot -ScriptBlock {
             param($root)
             . (Join-Path $root 'src\Loader.ps1')
             Initialize-AppFolder
-            Find-DriverUpdate
+            $inv = @(Get-DeviceInventory)
+            $upd = @(Find-DriverUpdate -Inventory $inv)
+            # JSON : les listes imbriquées survivent au passage entre processus
+            [pscustomobject]@{ Updates = $upd; Inventory = $inv } | ConvertTo-Json -Depth 4 -Compress
         }
         $timer.Start()
     }
 
-    function Start-PackageAnalysis([string]$Path) {
-        if ($script:CurrentJob) {
-            [void][System.Windows.Forms.MessageBox]::Show('Une opération est déjà en cours, patiente un peu.', 'Driver', 'OK', 'Information')
-            return
+    function Start-Install {
+        if ($script:CurrentJob) { return }
+        $selected = @(Get-CheckedUpdates | Where-Object { $_ })
+        if ($selected.Count -eq 0) { return }
+        $names = ($selected | ForEach-Object { "- $($_.Device) ($($_.CurrentVersion) -> $($_.NewVersion))" }) -join "`r`n"
+        if ([string](Show-Message "Installer ces pilotes ?`r`n`r`n$names" 'Confirmation' 'YesNo' 'Question') -ne 'Yes') { return }
+
+        Write-Log ("Installation validée par l'utilisateur : " + (($selected | ForEach-Object { $_.Device }) -join ', '))
+        Set-Busy $true 'Installation en cours... Ne pas éteindre l''ordinateur (l''écran peut clignoter).'
+        $script:JobKind    = 'install'
+        $script:CurrentJob = Start-Job -ArgumentList $script:AppRoot, $selected, ($ui.ChkRestore.IsChecked -eq $true) -ScriptBlock {
+            param($root, $items, $restorePoint)
+            . (Join-Path $root 'src\Loader.ps1')
+            Initialize-AppFolder
+            Install-DriverUpdate -Candidate $items -CreateRestorePoint:$restorePoint
         }
+        Update-InstallButton
+        $timer.Start()
+    }
+
+    function Start-PackageAnalysis([string]$Path) {
+        if ($script:CurrentJob) { [void](Show-Message 'Une opération est déjà en cours, patiente un peu.'); return }
         Write-Log "Paquet déposé : $Path"
         Set-Busy $true ("Analyse du paquet « {0} »..." -f (Split-Path $Path -Leaf))
         $script:JobKind    = 'analyze'
@@ -155,10 +420,17 @@ function Show-MainWindow {
             param($root, $p)
             . (Join-Path $root 'src\Loader.ps1')
             Initialize-AppFolder
-            # JSON : les objets imbriqués survivent au passage entre processus
             Get-DriverPackageAnalysis -Path $p | ConvertTo-Json -Depth 5
         }
         $timer.Start()
+    }
+
+    function Select-Package {
+        if ($script:CurrentJob) { [void](Show-Message 'Une opération est déjà en cours, patiente un peu.'); return }
+        $dlg = New-Object Microsoft.Win32.OpenFileDialog
+        $dlg.Title  = 'Choisir un paquet de pilotes'
+        $dlg.Filter = 'Paquets de pilotes (*.zip;*.exe)|*.zip;*.exe|Tous les fichiers (*.*)|*.*'
+        if ($dlg.ShowDialog($window) -eq $true) { Start-PackageAnalysis $dlg.FileName }
     }
 
     function Show-PackageDiagnostic([object]$Analysis) {
@@ -179,7 +451,7 @@ function Show-MainWindow {
             [void]$sb.AppendLine('Pour les pilotes, prends l''onglet « Pilotes » (Driver) de la page support, et non « BIOS ».')
         }
         elseif ($Analysis.InfCount -eq 0 -and $Analysis.ExeCount -eq 0) {
-            [void]$sb.AppendLine('=> Ce paquet ne contient ni pilote (.inf) ni installateur (.exe). Ce n''est probablement pas un pilote (manuel, utilitaire, BIOS ?).')
+            [void]$sb.AppendLine('=> Ce paquet ne contient ni pilote (.inf) ni installateur (.exe). Ce n''est probablement pas un pilote (manuel, utilitaire ?).')
         }
         elseif ($Analysis.InfCount -eq 0) {
             [void]$sb.AppendLine('=> Aucun fichier .inf lisible : le pilote est sans doute compressé dans l''installateur, mais aucun setup.exe principal n''a été trouvé.')
@@ -193,7 +465,6 @@ function Show-MainWindow {
             }
             if ($infList.Count -gt 6) { [void]$sb.AppendLine(("  ... et {0} autre(s) .inf" -f ($infList.Count - 6))) }
             [void]$sb.AppendLine()
-
             $pc = @($Analysis.PcDevices | Where-Object { $_ })
             if ($pc.Count -gt 0) {
                 [void]$sb.AppendLine('Ton matériel de ce type :')
@@ -205,8 +476,8 @@ function Show-MainWindow {
             }
         }
         [void]$sb.AppendLine()
-        [void]$sb.AppendLine('Détails complets dans les journaux (bouton « Journaux »).')
-        [void][System.Windows.Forms.MessageBox]::Show($sb.ToString(), 'Driver - paquet non compatible', 'OK', 'Warning')
+        [void]$sb.AppendLine('Détails complets dans les journaux.')
+        [void](Show-Message $sb.ToString() 'Driver - paquet non compatible' 'OK' 'Warning')
     }
 
     function Confirm-PackageInstall([object]$Analysis, [string]$Json) {
@@ -224,8 +495,8 @@ function Show-MainWindow {
                 "`r`n`r`n" + $text + 'Installer maintenant ?'
         }
         elseif ($older.Count -gt 0) {
-            Set-Busy $false 'Déjà à jour.'
-            [void][System.Windows.Forms.MessageBox]::Show($text + 'Tu es déjà à jour : ce paquet ne contient pas de version plus récente que la tienne.', 'Driver - déjà à jour', 'OK', 'Information')
+            Set-Busy $false (Get-StatusLine)
+            [void](Show-Message ($text + 'Tu es déjà à jour : ce paquet ne contient pas de version plus récente que la tienne.') 'Driver - déjà à jour')
             return
         }
         elseif ($Analysis.InfCount -eq 0 -and $Analysis.Setup -and $Analysis.SetupSigned) {
@@ -235,25 +506,25 @@ function Show-MainWindow {
                 'Tu devras suivre ses étapes.'
         }
         elseif ($Analysis.InfCount -eq 0 -and $Analysis.Setup) {
-            Set-Busy $false 'Paquet refusé.'
-            [void][System.Windows.Forms.MessageBox]::Show("L'installateur « $(Split-Path $Analysis.Setup -Leaf) » n'a pas de signature numérique valide : il est refusé par sécurité.", 'Driver', 'OK', 'Warning')
+            Set-Busy $false (Get-StatusLine)
+            [void](Show-Message "L'installateur « $(Split-Path $Analysis.Setup -Leaf) » n'a pas de signature numérique valide : il est refusé par sécurité." 'Driver' 'OK' 'Warning')
             return
         }
         else {
-            Set-Busy $false 'Ce paquet ne correspond pas à ton matériel.'
+            Set-Busy $false (Get-StatusLine)
             Show-PackageDiagnostic -Analysis $Analysis
             return
         }
 
-        if ([System.Windows.Forms.MessageBox]::Show($text, 'Installer le paquet', 'YesNo', 'Question') -ne 'Yes') {
-            Set-Busy $false 'Installation du paquet annulée.'
+        if ([string](Show-Message $text 'Installer le paquet' 'YesNo' 'Question') -ne 'Yes') {
+            Set-Busy $false (Get-StatusLine)
             return
         }
 
         Write-Log "Paquet manuel : installation validée par l'utilisateur ($($Analysis.Source))"
         Set-Busy $true 'Installation du paquet en cours... (l''écran ou le son peuvent couper quelques secondes)'
         $script:JobKind    = 'install'
-        $script:CurrentJob = Start-Job -ArgumentList $script:AppRoot, $Json, $chkRestore.Checked -ScriptBlock {
+        $script:CurrentJob = Start-Job -ArgumentList $script:AppRoot, $Json, ($ui.ChkRestore.IsChecked -eq $true) -ScriptBlock {
             param($root, $json, $restorePoint)
             . (Join-Path $root 'src\Loader.ps1')
             Initialize-AppFolder
@@ -262,9 +533,9 @@ function Show-MainWindow {
         $timer.Start()
     }
 
-    # ---------- Timer de surveillance du job ----------
-    $timer = New-Object System.Windows.Forms.Timer
-    $timer.Interval = 500
+    # ---------- Surveillance du job en arrière-plan ----------
+    $timer = New-Object System.Windows.Threading.DispatcherTimer
+    $timer.Interval = [TimeSpan]::FromMilliseconds(500)
     $timer.Add_Tick({
         if (-not $script:CurrentJob) { return }
         if ([string]$script:CurrentJob.State -notin @('Completed', 'Failed', 'Stopped')) { return }
@@ -272,140 +543,127 @@ function Show-MainWindow {
         $timer.Stop()
         $jobErrors = $null
         $output = @(Receive-Job -Job $script:CurrentJob -ErrorAction SilentlyContinue -ErrorVariable jobErrors)
-        $errText = (@($jobErrors) | Where-Object { $_ } | ForEach-Object { $_.ToString() }) -join "`r`n"
-        if ($errText) { Write-Log "Erreur dans la tâche de fond ($($script:JobKind)) : $errText" 'ERREUR' }
-        $failed = ($script:CurrentJob.State -ne 'Completed')
+        $failed = ([string]$script:CurrentJob.State -ne 'Completed')
         Remove-Job -Job $script:CurrentJob -Force
         $script:CurrentJob = $null
+        $errText = (@($jobErrors) | Where-Object { $_ } | ForEach-Object { $_.ToString() }) -join "`r`n"
+        if ($errText) { Write-Log "Erreur dans la tâche de fond ($($script:JobKind)) : $errText" 'ERREUR' }
 
         if ($script:JobKind -eq 'search') {
-            Update-ResultList $output
-            if ($failed) { $lblStatus.Text = 'La recherche a échoué : consulte les journaux.' }
+            $json = ($output | Where-Object { $_ -is [string] }) -join "`n"
+            if ($json) {
+                $data = $json | ConvertFrom-Json
+                $script:Updates    = @($data.Updates | Where-Object { $_ })
+                $script:Inventory  = @($data.Inventory | Where-Object { $_ })
+                $script:LastSearch = Get-Date
+                Update-All
+                Set-Busy $false (Get-StatusLine)
+            } else {
+                Set-Busy $false 'L''analyse a échoué : consulte les journaux.'
+            }
         }
         elseif ($script:JobKind -eq 'analyze') {
             $json = ($output | Where-Object { $_ -is [string] }) -join "`n"
             if ($failed -or -not $json) {
-                Set-Busy $false 'Analyse du paquet impossible.'
-                [void][System.Windows.Forms.MessageBox]::Show("Impossible d'analyser ce paquet.`r`n`r`n$errText", 'Driver', 'OK', 'Error')
+                Set-Busy $false (Get-StatusLine)
+                [void](Show-Message "Impossible d'analyser ce paquet.`r`n`r`n$errText" 'Driver' 'OK' 'Error')
             } else {
                 Confirm-PackageInstall -Analysis ($json | ConvertFrom-Json) -Json $json
             }
         }
         elseif ($script:JobKind -eq 'install') {
-            $ok     = @($output | Where-Object { $_.Success }).Count
-            $ko     = @($output | Where-Object { -not $_.Success })
-            $reboot = @($output | Where-Object { $_.RebootRequired }).Count -gt 0
+            $results = @($output | Where-Object { $_ -and $_.PSObject.Properties['Success'] })
+            $ok      = @($results | Where-Object { $_.Success }).Count
+            $reboot  = @($results | Where-Object { $_.RebootRequired }).Count -gt 0
 
-            $msg = "$ok opération(s) réussie(s) sur $(@($output).Count)."
-            if (@($output).Count -gt 0) {
-                $msg += "`r`n`r`n" + (($output | ForEach-Object { "- $($_.Device) : $($_.Message)" }) -join "`r`n")
+            $msg = "$ok opération(s) réussie(s) sur $($results.Count)."
+            if ($results.Count -gt 0) {
+                $msg += "`r`n`r`n" + (($results | ForEach-Object { "- $($_.Device) : $($_.Message)" }) -join "`r`n")
             }
             if ($errText) { $msg += "`r`n`r`nErreur : $errText" }
             Set-Busy $false 'Installation terminée.'
+            Update-Activity
 
             if ($reboot) {
-                $answer = [System.Windows.Forms.MessageBox]::Show("$msg`r`n`r`nUn redémarrage est nécessaire. Redémarrer maintenant ?", 'Driver', 'YesNo', 'Question')
-                if ($answer -eq 'Yes') { Restart-Computer -Force }
+                if ([string](Show-Message "$msg`r`n`r`nUn redémarrage est nécessaire. Redémarrer maintenant ?" 'Driver' 'YesNo' 'Question') -eq 'Yes') {
+                    Restart-Computer -Force
+                }
             } else {
-                [void][System.Windows.Forms.MessageBox]::Show($msg, 'Driver', 'OK', 'Information')
+                [void](Show-Message $msg)
             }
             Start-Search
         }
     })
 
-    # ---------- Événements des boutons ----------
-    $btnSearch.Add_Click({ Start-Search })
-
-    $btnPackage.Add_Click({
-        $dlg = New-Object System.Windows.Forms.OpenFileDialog
-        $dlg.Title  = 'Choisir un paquet de pilotes'
-        $dlg.Filter = 'Paquets de pilotes (*.zip;*.exe)|*.zip;*.exe|Tous les fichiers (*.*)|*.*'
-        if ($dlg.ShowDialog($form) -eq 'OK') { Start-PackageAnalysis $dlg.FileName }
-    })
-
-    # Bascule "Afficher tous les pilotes" (sans relancer de recherche)
-    $chkAll.Add_CheckedChanged({
-        if (-not $script:CurrentJob) { Update-ResultList $script:LastResults }
-    })
-
-    # Les lignes "À jour" ne peuvent pas être cochées
-    $list.Add_ItemCheck({
-        param($s, $e)
-        if ($null -eq $list.Items[$e.Index].Tag) { $e.NewValue = [System.Windows.Forms.CheckState]::Unchecked }
-    })
-
-    $btnInstall.Add_Click({
-        $selected = @($list.CheckedItems | ForEach-Object { $_.Tag } | Where-Object { $_ })
-        if ($selected.Count -eq 0) {
-            [void][System.Windows.Forms.MessageBox]::Show('Aucun pilote coché.', 'Driver', 'OK', 'Warning')
-            return
-        }
-        $names   = ($selected | ForEach-Object { "- $($_.Device) ($($_.CurrentVersion) -> $($_.NewVersion))" }) -join "`r`n"
-        $confirm = [System.Windows.Forms.MessageBox]::Show("Installer ces pilotes ?`r`n`r`n$names", 'Confirmation', 'YesNo', 'Question')
-        if ($confirm -ne 'Yes') { return }
-
-        Write-Log ("Installation validée par l'utilisateur : " + (($selected | ForEach-Object { $_.Device }) -join ', '))
-        Set-Busy $true 'Installation en cours... Ne pas éteindre l''ordinateur (l''écran peut clignoter).'
-        $btnInstall.Enabled = $false
-        $script:JobKind    = 'install'
-        $script:CurrentJob = Start-Job -ArgumentList $script:AppRoot, $selected, $chkRestore.Checked -ScriptBlock {
-            param($root, $items, $restorePoint)
-            . (Join-Path $root 'src\Loader.ps1')
-            Initialize-AppFolder
-            Install-DriverUpdate -Candidate $items -CreateRestorePoint:$restorePoint
-        }
-        $timer.Start()
-    })
-
-    # Carte mère : on affiche le modèle dans l'info-bulle et on ouvre sa page support
-    try {
-        $board = Get-MotherboardInfo
-        $toolTip = New-Object System.Windows.Forms.ToolTip
-        $toolTip.SetToolTip($btnBoard, "Ouvre la page des pilotes de ta carte mère : $($board.Manufacturer) $($board.Product)")
-    } catch { $board = $null }
-    $btnBoard.Add_Click({
-        $url = Get-MotherboardSupportUrl -Board $board
+    # ---------- Événements ----------
+    $ui.NavDashboard.Add_Click({ Set-View 'dashboard' })
+    $ui.NavUpdates.Add_Click({ Set-View 'updates' })
+    $ui.NavAll.Add_Click({ Set-View 'all' })
+    $ui.NavPackage.Add_Click({ Select-Package })
+    $ui.NavBoard.Add_Click({
+        $url = Get-MotherboardSupportUrl -Board $script:Board
         Write-Log "Ouverture de la page support carte mère : $url"
         Start-Process $url
     })
+    $ui.NavLogs.Add_Click({ Start-Process explorer.exe -ArgumentList $script:LogDir })
+    $ui.BtnSearch.Add_Click({ Start-Search })
+    $ui.BtnInstall.Add_Click({ Start-Install })
+    $ui.DropZone.Add_MouseLeftButtonUp({ Select-Package })
 
-    $btnLogs.Add_Click({ Start-Process explorer.exe -ArgumentList $script:LogDir })
-    $btnClose.Add_Click({ $form.Close() })
+    $window.Add_SourceInitialized({
+        $hwnd = (New-Object System.Windows.Interop.WindowInteropHelper($window)).Handle
+        # Barre de titre bleu nuit (#12263A) et texte blanc - format 0x00BBGGRR
+        [DriverWindowTheme]::SetCaption($hwnd, 0x003A2612, 0x00FFFFFF)
+        # Glisser-déposer de fichiers malgré les droits administrateur
+        try {
+            $script:DropHook = New-Object DriverDropHook($hwnd)
+            $script:DropHook.add_FilesDropped({
+                param($s, $e)
+                if ($e.Files.Count -gt 0) { Start-PackageAnalysis $e.Files[0] }
+            })
+        } catch {
+            Write-Log "Glisser-déposer indisponible : $($_.Exception.Message)" 'WARN'
+        }
+    })
 
-    $form.Add_FormClosing({
+    $window.Add_Closing({
         param($s, $e)
         if ($script:CurrentJob -and $script:JobKind -eq 'install') {
-            [void][System.Windows.Forms.MessageBox]::Show('Une installation est en cours, merci de patienter.', 'Driver', 'OK', 'Warning')
+            [void](Show-Message 'Une installation est en cours, merci de patienter.' 'Driver' 'OK' 'Warning')
             $e.Cancel = $true
         }
         elseif ($script:CurrentJob) {
-            # Recherche en cours : on l'arrête proprement
             Stop-Job -Job $script:CurrentJob -ErrorAction SilentlyContinue
             Remove-Job -Job $script:CurrentJob -Force -ErrorAction SilentlyContinue
             $script:CurrentJob = $null
         }
     })
 
-    $form.Add_Shown({
-        $form.Activate()
-        # Glisser-déposer : sur la liste et sur la fenêtre
-        try {
-            $script:DropTargets = @(
-                (New-Object ElevatedDropTarget -ArgumentList $list),
-                (New-Object ElevatedDropTarget -ArgumentList $form)
-            )
-            foreach ($dt in $script:DropTargets) {
-                $dt.add_FilesDropped({ param($s, $e) if ($e.Files.Count -gt 0) { Start-PackageAnalysis $e.Files[0] } })
-            }
-        } catch {
-            Write-Log "Glisser-déposer indisponible : $($_.Exception.Message)" 'WARN'
+    $script:FirstRender = $true
+    $window.Add_ContentRendered({
+        if (-not $script:FirstRender) { return }
+        $script:FirstRender = $false
+        Set-View 'dashboard'
+        Update-PcInfo
+        if ($InitialResults) {
+            # Lancement au démarrage : la recherche est déjà faite
+            $script:Updates    = @($InitialResults | Where-Object { $_ })
+            $script:Inventory  = @(Get-DeviceInventory)
+            $script:LastSearch = Get-Date
+            Update-All
+            Set-Busy $false (Get-StatusLine)
         }
-        if ($InitialResults) { Update-ResultList $InitialResults }
-        elseif ($AutoSearch)  { Start-Search }
-        else                  { Set-Busy $false 'Clique sur « Rechercher » pour vérifier tes pilotes.' }
+        elseif ($AutoSearch) {
+            $script:Inventory = @(Get-DeviceInventory)
+            Update-All
+            Start-Search
+        }
+        else {
+            Update-All
+            Set-Busy $false (Get-StatusLine)
+        }
     })
 
-    [void]$form.ShowDialog()
-    $timer.Dispose()
-    $form.Dispose()
+    [void]$window.ShowDialog()
+    $timer.Stop()
 }

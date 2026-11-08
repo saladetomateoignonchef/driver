@@ -18,7 +18,8 @@ de mon PC et me propose de les mettre à jour. **Rien n'est installé sans ma va
                                             (chipset Intel, Realtek audio/réseau, Bluetooth…)
         │
  ┌──────▼───────┐
- │   Fenêtre    │  je coche les pilotes → point de restauration → installation → vérification
+ │  Tableau de  │
+ │    bord      │  je coche les pilotes → point de restauration → installation → vérification
  └──────────────┘
 ```
 
@@ -58,8 +59,9 @@ driver/
 │   ├── Common.ps1             # journaux, droits admin, conversion de versions
 │   ├── Inventory.ps1          # inventaire matériel (WMI)
 │   ├── Core.ps1               # orchestration recherche / installation
-│   ├── Gui.ps1                # interface Windows Forms
-│   ├── DropTarget.ps1         # glisser-déposer dans une fenêtre administrateur
+│   ├── MainWindow.xaml        # mise en page de la fenêtre (WPF, style tableau de bord)
+│   ├── Gui.ps1                # remplissage de la fenêtre et réactions aux clics
+│   ├── DropTarget.ps1         # glisser-déposer en administrateur + barre de titre colorée
 │   ├── ManualPackage.ps1      # analyse et installation d'un ZIP de pilotes
 │   ├── Loader.ps1             # charge tous les modules
 │   └── Providers/
