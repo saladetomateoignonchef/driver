@@ -3,7 +3,7 @@
 # =============================================================================
 
 $script:AppName      = 'DriverUpdater'
-$script:AppVersion   = '2.4.0'                              # une nouvelle valeur poussée sur main = nouvelle version publiée
+$script:AppVersion   = '2.4.1'                              # une nouvelle valeur poussée sur main = nouvelle version publiée
 $script:GitHubRepo   = 'saladetomateoignonchef/driver'      # source par défaut (modifiable dans Paramètres)
 $script:DataDir      = Join-Path $env:ProgramData 'DriverUpdater'
 $script:LogDir       = Join-Path $script:DataDir 'logs'
@@ -120,6 +120,7 @@ function Get-DefaultSettings {
         UpdateRepo      = $script:GitHubRepo   # dépôt GitHub d'où viennent les mises à jour de Driver
         ProviderNvidia  = $true         # interroger le site NVIDIA
         ProviderWindowsUpdate = $true   # interroger Windows Update
+        NoStartupTask   = $false        # installé avec -NoTask : aucune tâche planifiée (respecté par les mises à jour)
         LastCheck       = $null         # date de la dernière vérification automatique
     }
 }
@@ -334,7 +335,10 @@ function Set-StartupTaskEnabled {
     $task = Get-ScheduledTask -TaskName $script:StartupTaskName -ErrorAction SilentlyContinue
     if (-not $task) {
         if (-not $Enabled) { return }
-        Register-DriverStartupTask      # tâche supprimée entre-temps : on la recrée
+        Register-DriverStartupTask      # pas de tâche (option -NoTask ou supprimée) : on la crée
+        $s = Get-AppSettings
+        if ($s.NoStartupTask) { $s.NoStartupTask = $false; Save-AppSettings -Settings $s }   # choix explicite de l'utilisateur
+        Write-Log "Recherche à l'ouverture de session : tâche créée"
         return
     }
     if ($Enabled) { Enable-ScheduledTask -TaskName $script:StartupTaskName -ErrorAction Stop | Out-Null }

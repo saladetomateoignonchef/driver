@@ -46,6 +46,18 @@ Four steps scroll by (search, download, extraction, installation), then Driver o
 >
 > The same command also **repairs** Driver if it no longer opens. Your settings are kept.
 
+### Install without the scheduled task (`-NoTask` option)
+
+By default, Driver creates a scheduled task that looks for updates when you sign in, with administrator rights. If you would rather **run the check yourself** (or if your antivirus / work PC blocks this kind of task), install Driver without it:
+
+```powershell
+$env:DRIVER_NOTASK = '1'; irm https://raw.githubusercontent.com/saladetomateoignonchef/driver/main/get-driver.ps1 | iex
+```
+
+With a manual install: `powershell.exe -ExecutionPolicy Bypass -File .\Install.ps1 -NoTask`.
+
+This choice is **remembered**: Driver updates do not recreate the task. You can change your mind at any time with the **Settings → Check for updates when I sign in** switch.
+
 ### Alternative: the `Installer-Driver.cmd` file
 
 If your browser lets it through:

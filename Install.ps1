@@ -11,7 +11,10 @@
     (élévation de privilèges). Program Files n'est modifiable que par les admins.
 #>
 [CmdletBinding()]
-param([switch]$Silent)   # -Silent : utilisé par la mise à jour automatique de Driver
+param(
+    [switch]$Silent,   # -Silent : utilisé par la mise à jour automatique de Driver
+    [switch]$NoTask    # -NoTask : pas de tâche planifiée (aucune recherche automatique à l'ouverture de session)
+)
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'src\Common.ps1')
@@ -73,9 +76,21 @@ Get-ChildItem -Path $target -Recurse -File | Unblock-File   # retire le marquage
 Write-Host '2/5 Création du dossier de données (journaux)' -ForegroundColor Cyan
 Initialize-AppFolder
 
+# Choix « sans tâche » : demandé maintenant (-NoTask) ou mémorisé lors d'une installation précédente,
+# pour qu'une mise à jour automatique ne recrée pas la tâche.
+$appSettings = Get-AppSettings
+if ($NoTask -and -not $appSettings.NoStartupTask) {
+    $appSettings.NoStartupTask = $true
+    try { Save-AppSettings -Settings $appSettings } catch { Write-Warning "Choix -NoTask non mémorisé : $($_.Exception.Message)" }
+}
+if ($appSettings.NoStartupTask) {
+    Write-Host "3/5 Tâche planifiée : non créée (option -NoTask). La recherche se fait en ouvrant Driver." -ForegroundColor Cyan
+    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+} else {
 Write-Host "3/5 Création de la tâche planifiée '$taskName' pour $user" -ForegroundColor Cyan
 $mainScript = Join-Path $target 'DriverUpdater.ps1'
 Register-DriverStartupTask -MainScript $mainScript   # garde la tâche désactivée si l'utilisateur l'a choisi
+}
 
 Write-Host '4/5 Création du raccourci sur le Bureau' -ForegroundColor Cyan
 # GetFolderPath donne le VRAI chemin du Bureau (il peut être déplacé, ex. OneDrive)

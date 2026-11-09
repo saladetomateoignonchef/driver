@@ -4,6 +4,10 @@
 #
 #     irm https://raw.githubusercontent.com/saladetomateoignonchef/driver/main/get-driver.ps1 | iex
 #
+#  Sans tache planifiee (aucune recherche automatique a l'ouverture de session) :
+#
+#     $env:DRIVER_NOTASK = '1'; irm https://raw.githubusercontent.com/saladetomateoignonchef/driver/main/get-driver.ps1 | iex
+#
 #  Telecharge la derniere version publiee sur GitHub (avec plan B si l'API
 #  GitHub ne repond pas), puis lance Install.ps1. Les reglages et sauvegardes
 #  (C:\ProgramData\DriverUpdater) sont conserves.
@@ -78,7 +82,9 @@
         if (-not $installer) { throw 'Install.ps1 introuvable dans le ZIP.' }
 
         Write-Host '  4/4 Installation...'
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer.FullName -Silent
+        $installArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $installer.FullName, '-Silent')
+        if ($env:DRIVER_NOTASK) { $installArgs += '-NoTask'; Write-Host '      Option : sans tache planifiee (-NoTask)' }
+        & powershell.exe @installArgs
         if ($LASTEXITCODE -ne 0) { throw "Install.ps1 a echoue (code $LASTEXITCODE)." }
 
         Write-Host ''

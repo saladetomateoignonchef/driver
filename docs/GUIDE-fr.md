@@ -44,6 +44,18 @@ Quatre étapes défilent (recherche, téléchargement, extraction, installation)
 >
 > La même commande sert aussi à **réparer** Driver s'il ne s'ouvre plus. Tes réglages sont conservés.
 
+### Installer sans tâche planifiée (option `-NoTask`)
+
+Par défaut, Driver crée une tâche planifiée qui cherche les mises à jour à l'ouverture de session, avec les droits administrateur. Si tu préfères **lancer la recherche toi-même** (ou si ton antivirus / ton PC d'entreprise bloque ce type de tâche), installe Driver sans elle :
+
+```powershell
+$env:DRIVER_NOTASK = '1'; irm https://raw.githubusercontent.com/saladetomateoignonchef/driver/main/get-driver.ps1 | iex
+```
+
+Avec une installation manuelle : `powershell.exe -ExecutionPolicy Bypass -File .\Install.ps1 -NoTask`.
+
+Ce choix est **mémorisé** : les mises à jour de Driver ne recréent pas la tâche. Tu peux changer d'avis à tout moment avec l'interrupteur **Paramètres → Rechercher les mises à jour à l'ouverture de session**.
+
 ### Autre méthode : le fichier `Installer-Driver.cmd`
 
 Si ton navigateur le laisse passer :
