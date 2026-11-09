@@ -62,12 +62,7 @@ Au premier lancement, Driver analyse **tout ton matériel** (carte graphique, ca
 
 Toutes les recherches de mises à jour se basent sur cette configuration. Si tu ajoutes ou changes du matériel plus tard, voir [Nouveau matériel](#8-nouveau-matériel).
 
-Ensuite, Driver vérifie aussi tes pilotes **en arrière-plan à chaque démarrage du PC**, environ 2 minutes après l'ouverture de ta session (réglable dans Paramètres : chaque jour, chaque semaine ou jamais). Cette vérification est **silencieuse** :
-
-- **si tout est à jour**, rien ne s'affiche (c'est normal, la vérification a bien eu lieu : elle est notée dans les logs) ;
-- **si une mise à jour existe** ou si du nouveau matériel est détecté, une notification apparaît près de l'horloge ; clique dessus pour ouvrir Driver.
-
-Quand tu ouvres Driver toi-même, il lance aussi une analyse.
+Ensuite, Driver vérifie tes pilotes **à chaque démarrage de l'application** : dès que tu l'ouvres, il lance une analyse et t'affiche les mises à jour disponibles.
 
 ---
 
