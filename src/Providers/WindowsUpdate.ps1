@@ -25,6 +25,11 @@ function Get-WindowsUpdateDriverUpdate {
     Write-Log "Windows Update : $($result.Updates.Count) pilote(s) proposé(s)"
 
     foreach ($u in $result.Updates) {
+        # Firmware / BIOS : jamais proposé (risque de rendre le PC inutilisable en cas de coupure)
+        if ([string]$u.DriverClass -match 'Firmware' -or [string]$u.Title -match '(?i)\b(firmware|bios|uefi)\b') {
+            Write-Log "Windows Update : '$($u.Title)' ignoré (firmware / BIOS, non géré par Driver)"
+            continue
+        }
         $device  = Find-InventoryDevice -Inventory $Inventory -HardwareId $u.DriverHardwareID
         $name    = if ($device) { $device.Name } else { $u.DriverModel }
         $current = if ($device) { $device.DriverVersion } else { '?' }
@@ -73,7 +78,12 @@ function Install-WindowsUpdateDriver {
             Title          = $coll.Item($i).Title
             Success        = ($r.ResultCode -eq 2 -or $r.ResultCode -eq 3)
             RebootRequired = [bool]$r.RebootRequired
-            Message        = (T 'MsgWuResult' $r.ResultCode $r.HResult)
+            Message        = switch ([int]$r.ResultCode) {
+                2       { if ($r.RebootRequired) { T 'MsgWuInstalledReboot' } else { T 'MsgWuInstalled' } }
+                3       { T 'MsgWuPartial' }
+                5       { T 'MsgWuCanceled' }
+                default { T 'MsgWuFailed' ('0x{0:X8}' -f [int]$r.HResult) }
+            }
         }
     }
 }

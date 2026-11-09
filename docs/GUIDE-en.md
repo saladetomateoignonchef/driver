@@ -111,6 +111,19 @@ After that, Driver checks your drivers **every time the app starts**: as soon as
 - **Ignore**: this link next to an update stops it from being offered. A newer version of the same driver will be offered again. Undo it in **Settings → Ignored updates**.
 - **Game Ready or Studio** (NVIDIA): set in Settings.
 
+### Where do updates come from?
+
+| Hardware | Source | What it means |
+|---|---|---|
+| **NVIDIA** graphics card | NVIDIA's official site | Always the very latest version |
+| **Everything else** (Intel, AMD, Realtek, Bluetooth…) | Windows Update | Versions validated by Microsoft, often **behind** the manufacturer's site |
+
+On the dashboard:
+- **Up to date** (green): checked on the manufacturer's site (NVIDIA);
+- **No update found** (grey): Windows Update offers nothing newer, but the manufacturer may have one on its site. Open **Websites** to check, then install the downloaded ZIP by drag and drop (see section 5).
+
+> **Firmware / BIOS** updates offered by Windows Update are deliberately ignored: a power cut during that kind of update can make the PC unusable.
+
 ---
 
 ## 5. Install a manually downloaded driver

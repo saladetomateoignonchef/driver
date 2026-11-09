@@ -91,14 +91,23 @@ function New-IconBadge([string]$Kind, [double]$Size = 36) {
     return $bd
 }
 
-function New-Pill([string]$Text, [bool]$Warn) {
+function New-Pill([string]$Text, [string]$Kind = 'ok') {
+    <# $Kind : 'warn' (mise à jour), 'ok' (à jour, vérifié), 'neutral' (rien trouvé, non vérifié chez le constructeur) #>
     $bd = New-Object System.Windows.Controls.Border
     $bd.CornerRadius = New-Object System.Windows.CornerRadius(10)
     $bd.Padding      = New-Thickness 10 3 10 3
     $bd.HorizontalAlignment = 'Left'
-    if ($Warn) { $bd.Background = Get-Brush '#FEF3C7'; $color = '#92400E' } else { $bd.Background = Get-Brush '#DCFCE7'; $color = '#166534' }
-    $bd.Child = New-Text $Text 11.5 $color -SemiBold
+    switch ($Kind) {
+        'warn'    { $bd.Background = Get-Brush '#FEF3C7'; $bd.Child = New-Text $Text 11.5 '#92400E' -SemiBold }
+        'neutral' { $bd.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, 'ChipBrush'); $bd.Child = New-Text $Text 11.5 'ChipText' -SemiBold }
+        default   { $bd.Background = Get-Brush '#DCFCE7'; $bd.Child = New-Text $Text 11.5 '#166534' -SemiBold }
+    }
     return $bd
+}
+
+function Test-VerifiedSource([object]$Device) {
+    <# Vrai si la dernière version a été vérifiée à la source (site du constructeur) : aujourd'hui, NVIDIA. #>
+    return [bool]($Device.VendorId -eq '10DE' -and $Device.Class -eq 'DISPLAY' -and (Get-AppSettings).ProviderNvidia)
 }
 
 function New-VersionText([string]$Current, [string]$New) {
@@ -166,6 +175,7 @@ function Get-ComponentList {
                 Device  = $dev.Name
                 Label   = (($dev.Name -replace '\((R|TM)\)', '') -replace '\s+', ' ').Trim()
                 Version = $dev.DriverVersion
+                Verified = (Test-VerifiedSource $dev)
             }
         }
     }
@@ -438,11 +448,12 @@ function Show-MainWindow {
             }
             $size = Format-Size $u.SizeMB
             $pill = if ($size) { T 'PillUpdateSize' $size } else { T 'PillUpdate' }
-            $cards.Add(@{ Kind = $kind; Title = $title; Label = $label; Warn = $true; Pill = $pill; Current = $u.CurrentVersion; New = $u.NewVersion })
+            $cards.Add(@{ Kind = $kind; Title = $title; Label = $label; Warn = $true; PillKind = 'warn'; Pill = $pill; Current = $u.CurrentVersion; New = $u.NewVersion })
         }
         foreach ($c in $components) {
             if ($used[$c.Device]) { continue }
-            $cards.Add(@{ Kind = $c.Kind; Title = $c.Title; Label = $c.Label; Warn = $false; Pill = (T 'PillUpToDate'); Current = $c.Version; New = $null })
+            if ($c.Verified) { $cards.Add(@{ Kind = $c.Kind; Title = $c.Title; Label = $c.Label; Warn = $false; PillKind = 'ok'; Pill = (T 'PillUpToDate'); Current = $c.Version; New = $null }) }
+            else { $cards.Add(@{ Kind = $c.Kind; Title = $c.Title; Label = $c.Label; Warn = $false; PillKind = 'neutral'; Pill = (T 'PillNotFound'); Tip = (T 'TipNotVerified'); Current = $c.Version; New = $null }) }
         }
 
         foreach ($c in $cards) {
@@ -464,7 +475,8 @@ function Show-MainWindow {
             [void]$head.Children.Add($titles)
             [void]$stack.Children.Add($head)
 
-            $pillEl = New-Pill $c.Pill $c.Warn
+            $pillEl = New-Pill $c.Pill $c.PillKind
+            if ($c.Tip) { $card.ToolTip = $c.Tip }
             $pillEl.Margin = New-Thickness 0 12 0 0
             [void]$stack.Children.Add($pillEl)
 
@@ -556,7 +568,7 @@ function Show-MainWindow {
                 Name          = $d.Name
                 Manufacturer  = $d.Manufacturer
                 DriverVersion = $d.DriverVersion
-                Status        = if ($u) { T 'StatusUpdate' $u.NewVersion } else { T 'StatusOk' }
+                Status        = if ($u) { T 'StatusUpdate' $u.NewVersion } elseif (Test-VerifiedSource $d) { T 'StatusOk' } else { T 'StatusNoneFound' }
             }
         }
         $ui.AllGrid.ItemsSource = @($rows)

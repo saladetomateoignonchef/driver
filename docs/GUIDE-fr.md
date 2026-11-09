@@ -109,6 +109,19 @@ Ensuite, Driver vérifie tes pilotes **à chaque démarrage de l'application** :
 - **Ignorer** : à droite d'une mise à jour, ce lien fait qu'elle ne te sera plus proposée. Une version plus récente du même pilote le sera de nouveau. Tu peux annuler dans **Paramètres → Mises à jour ignorées**.
 - **Game Ready ou Studio** (NVIDIA) : se règle dans les Paramètres.
 
+### D'où viennent les mises à jour ?
+
+| Matériel | Source | Ce que ça veut dire |
+|---|---|---|
+| Carte graphique **NVIDIA** | Site officiel NVIDIA | Toujours la toute dernière version |
+| **Tout le reste** (Intel, AMD, Realtek, Bluetooth…) | Windows Update | Versions validées par Microsoft, souvent **en retard** sur le site du constructeur |
+
+Sur le tableau de bord :
+- **À jour** (vert) : vérifié sur le site du constructeur (NVIDIA) ;
+- **Aucune MAJ trouvée** (gris) : Windows Update ne propose rien de plus récent, mais le constructeur en a peut-être une sur son site. Ouvre **Sites** pour vérifier, puis installe le ZIP téléchargé par glisser-déposer (voir section 5).
+
+> Les mises à jour de **firmware / BIOS** proposées par Windows Update sont volontairement ignorées : une coupure pendant ce type de mise à jour peut rendre le PC inutilisable.
+
 ---
 
 ## 5. Installer un pilote téléchargé à la main
