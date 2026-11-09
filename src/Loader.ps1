@@ -4,6 +4,7 @@
 . (Join-Path $PSScriptRoot 'Inventory.ps1')
 . (Join-Path $PSScriptRoot 'Providers\Nvidia.ps1')
 . (Join-Path $PSScriptRoot 'Providers\WindowsUpdate.ps1')
+. (Join-Path $PSScriptRoot 'Providers\Vendors.ps1')
 . (Join-Path $PSScriptRoot 'Core.ps1')
 . (Join-Path $PSScriptRoot 'ManualPackage.ps1')
 . (Join-Path $PSScriptRoot 'Backup.ps1')

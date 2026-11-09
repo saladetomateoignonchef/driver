@@ -248,6 +248,7 @@ function Show-MainWindow {
     $script:HwScan       = $null
     $script:HwDiff       = $null
     $script:NewHardware  = @()
+    $script:VendorChecks = @()
     $script:LinkRows     = New-Object System.Collections.Generic.List[object]
     $script:CurrentView  = 'dashboard'
     $script:LoadingSettings = $false
@@ -494,7 +495,8 @@ function Show-MainWindow {
         $ui.UpdatesPanel.Children.Clear()
         $script:UpdateChecks.Clear()
         $updates = Get-VisibleUpdates
-        $ui.UpdatesEmpty.Visibility = if ($updates.Count) { 'Collapsed' } else { 'Visible' }
+        $vendorChecks = @($script:VendorChecks | Where-Object { $_ -and $_.Status -ne 'update' })
+        $ui.UpdatesEmpty.Visibility = if ($updates.Count -or $vendorChecks.Count) { 'Collapsed' } else { 'Visible' }
 
         foreach ($u in $updates) {
             $row = New-Object System.Windows.Controls.Border
@@ -555,6 +557,43 @@ function Show-MainWindow {
 
             $row.Child = $grid
             [void]$ui.UpdatesPanel.Children.Add($row)
+        }
+
+        # Fabricants à vérifier à la main : un bouton par fabricant (site qui refuse les programmes, etc.)
+        if ($vendorChecks.Count) {
+            $head = New-Text (T 'VendorSectionTitle') 15 -SemiBold
+            $head.Margin = New-Thickness 0 14 0 2
+            [void]$ui.UpdatesPanel.Children.Add($head)
+            $help = New-Text (T 'VendorSectionHelp') 12.5 'Muted'
+            $help.TextWrapping = 'Wrap'; $help.Margin = New-Thickness 0 0 0 10
+            [void]$ui.UpdatesPanel.Children.Add($help)
+            foreach ($v in $vendorChecks) {
+                $row = New-Object System.Windows.Controls.Border
+                $row.Style   = $window.FindResource('Card')
+                $row.Margin  = New-Thickness 0 0 0 8
+                $row.Padding = New-Thickness 16 12 14 12
+                $grid = New-Columns @('Auto', '*', 'Auto', 'Auto')
+                $icon = New-IconBadge 'other' 34
+                $icon.Margin = New-Thickness 0 0 14 0
+                Add-ToGrid $grid $icon 0
+                $info = New-Object System.Windows.Controls.StackPanel
+                $info.VerticalAlignment = 'Center'
+                [void]$info.Children.Add((New-Text $v.Vendor 14 -SemiBold))
+                $devText = New-Text ((@($v.Devices) | Select-Object -First 3) -join ' · ') 12 'Muted'
+                [void]$info.Children.Add($devText)
+                Add-ToGrid $grid $info 1
+                $statusKey = switch ($v.Status) { 'blocked' { 'VendorBlocked' } 'uptodate' { 'VendorUpToDate' } default { 'VendorManual' } }
+                $chipKind  = if ($v.Status -eq 'uptodate') { 'ok' } else { 'neutral' }
+                $chip = New-Pill (T $statusKey) $chipKind
+                $chip.VerticalAlignment = 'Center'; $chip.Margin = New-Thickness 12 0 12 0
+                Add-ToGrid $grid $chip 2
+                $btn = New-Button -Text (T 'VendorOpen' $v.Vendor) -Style 'BtnPrimary' -Tag $v.Url -Window $window
+                $btn.Padding = New-Thickness 14 6 14 6
+                $btn.Add_Click({ param($s, $e); Write-Log "Ouverture du site fabricant : $($s.Tag)"; Start-Process $s.Tag })
+                Add-ToGrid $grid $btn 3
+                $row.Child = $grid
+                [void]$ui.UpdatesPanel.Children.Add($row)
+            }
         }
         Update-InstallButton
     }
@@ -671,6 +710,7 @@ function Show-MainWindow {
         $ui.RbKeep5.IsChecked       = ([int]$s.BackupKeep -eq 5)
         $ui.ChkProvNvidia.IsChecked = [bool]$s.ProviderNvidia
         $ui.ChkProvWu.IsChecked     = [bool]$s.ProviderWindowsUpdate
+        $ui.ChkProvVendors.IsChecked = [bool]$s.ProviderVendorSites
         $ui.ChkAutoUpdate.IsChecked = [bool]$s.AutoUpdateCheck
         $ui.TxtRepo.Text            = Get-UpdateRepo
         $ui.AppVersionText.Text     = T 'AppVersionLine' $script:AppVersion (Get-UpdateRepo)
@@ -923,7 +963,8 @@ function Show-MainWindow {
             $upd = @(Find-DriverUpdate -Inventory $w.Inventory -ExcludeHardwareId @($w.NewHardware | ForEach-Object { $_.HardwareId }))
             $new = @($w.NewHardware | Select-Object Name, Manufacturer, Class, HardwareId)
             # JSON : les listes imbriquées survivent au passage entre processus
-            [pscustomobject]@{ Updates = $upd; Inventory = $inv; NewHardware = $new } | ConvertTo-Json -Depth 4 -Compress
+            $vendors = @($script:LastVendorChecks | Select-Object Vendor, Url, Status, Latest, Devices)
+            [pscustomobject]@{ Updates = $upd; Inventory = $inv; NewHardware = $new; VendorChecks = $vendors } | ConvertTo-Json -Depth 4 -Compress
         }
     }
 
@@ -1143,6 +1184,7 @@ function Show-MainWindow {
                     $data = $json | ConvertFrom-Json
                     $script:Updates    = @($data.Updates | Where-Object { $_ })
                     $script:Inventory  = @($data.Inventory | Where-Object { $_ })
+                    $script:VendorChecks = @($data.VendorChecks | Where-Object { $_ })
                     $script:LastSearch = Get-Date
                     Update-All
                     Update-HardwareBanner @($data.NewHardware)
@@ -1310,6 +1352,7 @@ function Show-MainWindow {
     })
     $ui.ChkProvNvidia.Add_Click({ Save-Setting 'ProviderNvidia' ($ui.ChkProvNvidia.IsChecked -eq $true) })
     $ui.ChkProvWu.Add_Click({     Save-Setting 'ProviderWindowsUpdate' ($ui.ChkProvWu.IsChecked -eq $true) })
+    $ui.ChkProvVendors.Add_Click({ Save-Setting 'ProviderVendorSites' ($ui.ChkProvVendors.IsChecked -eq $true) })
     $ui.ChkAutoUpdate.Add_Click({ Save-Setting 'AutoUpdateCheck' ($ui.ChkAutoUpdate.IsChecked -eq $true) })
     $ui.BtnCheckAppUpdate.Add_Click({ Invoke-GitHubUpdateCheck })
 

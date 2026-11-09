@@ -3,7 +3,7 @@
 # =============================================================================
 
 $script:AppName      = 'DriverUpdater'
-$script:AppVersion   = '2.4.2'                              # une nouvelle valeur poussée sur main = nouvelle version publiée
+$script:AppVersion   = '2.5.0'                              # une nouvelle valeur poussée sur main = nouvelle version publiée
 $script:GitHubRepo   = 'saladetomateoignonchef/driver'      # source par défaut (modifiable dans Paramètres)
 $script:DataDir      = Join-Path $env:ProgramData 'DriverUpdater'
 $script:LogDir       = Join-Path $script:DataDir 'logs'
@@ -120,6 +120,7 @@ function Get-DefaultSettings {
         UpdateRepo      = $script:GitHubRepo   # dépôt GitHub d'où viennent les mises à jour de Driver
         ProviderNvidia  = $true         # interroger le site NVIDIA
         ProviderWindowsUpdate = $true   # interroger Windows Update
+        ProviderVendorSites = $true     # vérifier les sites des fabricants (Intel, AMD...)
         NoStartupTask   = $false        # installé avec -NoTask : aucune tâche planifiée (respecté par les mises à jour)
         LastCheck       = $null         # date de la dernière vérification automatique
     }

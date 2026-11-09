@@ -118,6 +118,7 @@ Ensuite, Driver vérifie tes pilotes **à chaque démarrage de l'application** :
 
 Sur le tableau de bord :
 - **À jour** (vert) : vérifié sur le site du constructeur (NVIDIA) ;
+- **Vérifier sur le site du fabricant** (page Mises à jour) : quand le site d'un fabricant refuse les programmes (Intel, Gigabyte…), un **bouton à son nom** t'y emmène. Télécharge le pilote (de préférence en ZIP), glisse le fichier dans Driver : il fait le reste. Si le site répond, Driver propose la mise à jour tout seul.
 - **Aucune MAJ trouvée** (gris) : Windows Update ne propose rien de plus récent, mais le constructeur en a peut-être une sur son site. Ouvre **Sites** pour vérifier, puis installe le ZIP téléchargé par glisser-déposer (voir section 5).
 
 > Les mises à jour de **firmware / BIOS** proposées par Windows Update sont volontairement ignorées : une coupure pendant ce type de mise à jour peut rendre le PC inutilisable.

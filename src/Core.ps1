@@ -52,6 +52,21 @@ function Find-DriverUpdate {
     }
     }
 
+    # 3) Sites des fabricants : mise à jour automatique si possible, sinon bouton dans la fenêtre
+    $script:LastVendorChecks = @()
+    if ($settings.ProviderVendorSites) {
+        try {
+            $script:LastVendorChecks = @(Get-VendorCheck -Inventory $inventory)
+            foreach ($c in @($script:LastVendorChecks | ForEach-Object { $_.Candidates } | Where-Object { $_ })) {
+                # La version du fabricant remplace celle de Windows Update pour le même périphérique
+                foreach ($old in @($results | Where-Object { $_.Device -eq $c.Device -and $_.Source -eq 'Windows Update' })) { [void]$results.Remove($old) }
+                $results.Add($c)
+            }
+        } catch {
+            Write-Log "Sites des fabricants : erreur lors de la vérification : $($_.Exception.Message)" 'ERREUR'
+        }
+    }
+
     Write-Log "Recherche terminée : $($results.Count) mise(s) à jour disponible(s)"
     return $results.ToArray()
 }
@@ -100,6 +115,17 @@ function Install-DriverUpdate {
 
     $nvidia = @($Candidate | Where-Object { $_.Source -eq 'NVIDIA' })
     $wu     = @($Candidate | Where-Object { $_.Source -eq 'Windows Update' })
+    $vendor = @($Candidate | Where-Object { $_.Source -notin @('NVIDIA', 'Windows Update') })
+
+    foreach ($c in $vendor) {
+        try { Install-VendorDriver -Candidate $c }
+        catch {
+            Write-Log "$($c.Source) : échec de l'installation : $($_.Exception.Message)" 'ERREUR'
+            Add-HistoryEntry -Type 'Installation' -Device $c.Device -Source $c.Source -OldVersion $c.CurrentVersion `
+                -NewVersion $c.NewVersion -Success $false -Message $_.Exception.Message
+            [pscustomobject]@{ Device = $c.Device; Success = $false; RebootRequired = $false; Message = $_.Exception.Message }
+        }
+    }
 
     foreach ($c in $nvidia) {
         try {

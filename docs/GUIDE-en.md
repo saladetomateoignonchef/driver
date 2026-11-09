@@ -120,6 +120,7 @@ After that, Driver checks your drivers **every time the app starts**: as soon as
 
 On the dashboard:
 - **Up to date** (green): checked on the manufacturer's site (NVIDIA);
+- **Check on the manufacturer's website** (Updates page): when a manufacturer's site refuses programs (Intel, Gigabyte…), a **button with its name** takes you there. Download the driver (preferably as a ZIP), drop the file into Driver: it does the rest. If the site answers, Driver offers the update by itself.
 - **No update found** (grey): Windows Update offers nothing newer, but the manufacturer may have one on its site. Open **Websites** to check, then install the downloaded ZIP by drag and drop (see section 5).
 
 > **Firmware / BIOS** updates offered by Windows Update are deliberately ignored: a power cut during that kind of update can make the PC unusable.
