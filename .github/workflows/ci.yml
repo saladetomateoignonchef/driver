@@ -205,6 +205,23 @@ jobs:
             exit 1
           }
 
+      - name: Installation sans tache planifiee (-NoTask), respectee par les mises a jour
+        shell: powershell
+        run: |
+          try {
+            $script:AppRoot = (Get-Location).Path
+            . .\src\Loader.ps1
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1 -Silent -NoTask
+            if ($LASTEXITCODE -ne 0) { throw "Install.ps1 -NoTask a echoue ($LASTEXITCODE)" }
+            if (Get-ScheduledTask -TaskName DriverUpdater -ErrorAction SilentlyContinue) { throw 'Tache presente malgre -NoTask' }
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1 -Silent     # comme une mise a jour automatique
+            if (Get-ScheduledTask -TaskName DriverUpdater -ErrorAction SilentlyContinue) { throw 'Une mise a jour a recree la tache' }
+            Set-StartupTaskEnabled -Enabled $true                                                  # l'interrupteur la recree
+            if (-not (Get-StartupTaskEnabled)) { throw "L'interrupteur n'a pas recree la tache" }
+            if ((Get-AppSettings).NoStartupTask) { throw 'Le choix -NoTask aurait du etre oublie' }
+            Write-Host 'Option -NoTask : OK'
+          } catch { Write-Host "::error::$($_.Exception.Message)"; exit 1 }
+
   release:
     needs: tests
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -240,20 +257,3 @@ jobs:
         run: |
           V="v${{ steps.version.outputs.version }}"
           gh release create "$V" "dist/driver-$V.zip" Installer-Driver.cmd --target "$GITHUB_SHA" --title "Driver $V" --generate-notes
-
-      - name: Installation sans tache planifiee (-NoTask), respectee par les mises a jour
-        shell: powershell
-        run: |
-          try {
-            $script:AppRoot = (Get-Location).Path
-            . .\src\Loader.ps1
-            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1 -Silent -NoTask
-            if ($LASTEXITCODE -ne 0) { throw "Install.ps1 -NoTask a echoue ($LASTEXITCODE)" }
-            if (Get-ScheduledTask -TaskName DriverUpdater -ErrorAction SilentlyContinue) { throw 'Tache presente malgre -NoTask' }
-            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1 -Silent     # comme une mise a jour automatique
-            if (Get-ScheduledTask -TaskName DriverUpdater -ErrorAction SilentlyContinue) { throw 'Une mise a jour a recree la tache' }
-            Set-StartupTaskEnabled -Enabled $true                                                  # l'interrupteur la recree
-            if (-not (Get-StartupTaskEnabled)) { throw "L'interrupteur n'a pas recree la tache" }
-            if ((Get-AppSettings).NoStartupTask) { throw 'Le choix -NoTask aurait du etre oublie' }
-            Write-Host 'Option -NoTask : OK'
-          } catch { Write-Host "::error::$($_.Exception.Message)"; exit 1 }
