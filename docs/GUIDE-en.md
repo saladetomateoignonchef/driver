@@ -64,7 +64,12 @@ On first launch, Driver scans **all your hardware** (graphics card, motherboard,
 
 All update searches are based on this configuration. If you add or change hardware later, see [New hardware](#8-new-hardware).
 
-After that, Driver checks your drivers **every time the PC starts**, about 2 minutes after you sign in. If an update exists, a notification appears near the clock; click it to open Driver.
+After that, Driver also checks your drivers **in the background every time the PC starts**, about 2 minutes after you sign in (adjustable in Settings: daily, weekly or never). This check is **silent**:
+
+- **if everything is up to date**, nothing is shown (this is normal: the check did happen and is recorded in the logs);
+- **if an update exists** or new hardware is detected, a notification appears near the clock; click it to open Driver.
+
+When you open Driver yourself, it also runs a scan.
 
 ---
 
