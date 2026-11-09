@@ -168,7 +168,7 @@ A link you edited is never replaced automatically. **Restore automatic links** r
 
 | Setting | Options |
 |---|---|
-| **Automatic check** | At every startup, once a day, once a week, or never |
+| **Check when I sign in** | ON/OFF switch; when ON: at every sign-in, once a day or once a week |
 | **Notification** | ON: a notification at startup; OFF: the window opens directly |
 | **NVIDIA driver** | *Game Ready* (games, updated often) or *Studio* (creative work, more stable) |
 | **Dark mode** | Sun / moon switch |

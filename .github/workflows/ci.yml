@@ -151,6 +151,21 @@ jobs:
             Write-Host 'Reglages et configuration : lecture/ecriture OK apres 3 lancements'
           } catch { Write-Host "::error::$($_.Exception.Message)"; exit 1 }
 
+      - name: Interrupteur de recherche au demarrage (tache planifiee)
+        shell: powershell
+        run: |
+          try {
+            $script:AppRoot = (Get-Location).Path
+            . .\src\Loader.ps1
+            Set-StartupTaskEnabled -Enabled $false
+            if (Get-StartupTaskEnabled) { throw 'La tache aurait du etre desactivee' }
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1 -Silent    # une mise a jour ne doit pas la reactiver
+            if (Get-StartupTaskEnabled) { throw 'Install.ps1 a reactive une tache desactivee' }
+            Set-StartupTaskEnabled -Enabled $true
+            if (-not (Get-StartupTaskEnabled)) { throw 'La tache aurait du etre reactivee' }
+            Write-Host 'Interrupteur de demarrage : OK'
+          } catch { Write-Host "::error::$($_.Exception.Message)"; exit 1 }
+
       - name: Verification de l'installation
         shell: powershell
         run: |

@@ -3,7 +3,7 @@
 # =============================================================================
 
 $script:AppName      = 'DriverUpdater'
-$script:AppVersion   = '2.3.3'                              # une nouvelle valeur poussée sur main = nouvelle version publiée
+$script:AppVersion   = '2.4.0'                              # une nouvelle valeur poussée sur main = nouvelle version publiée
 $script:GitHubRepo   = 'saladetomateoignonchef/driver'      # source par défaut (modifiable dans Paramètres)
 $script:DataDir      = Join-Path $env:ProgramData 'DriverUpdater'
 $script:LogDir       = Join-Path $script:DataDir 'logs'
@@ -293,4 +293,51 @@ function Clear-OldFiles {
         Where-Object { -not (Get-ChildItem -Path $_.FullName -Force -ErrorAction SilentlyContinue) } |
         Remove-Item -Force -ErrorAction SilentlyContinue
     Write-Log ("Nettoyage : {0} fichier(s) de plus de {1} jours supprimé(s) ({2:N0} Mo libérés)" -f $old.Count, $Days, $sizeMB)
+}
+
+# =============================================================================
+#  Tâche planifiée « DriverUpdater » : recherche à l'ouverture de session
+# =============================================================================
+
+$script:StartupTaskName = 'DriverUpdater'
+
+function Register-DriverStartupTask {
+    <#
+        Crée (ou recrée) la tâche lancée 2 minutes après l'ouverture de session.
+        Si l'utilisateur l'avait désactivée (Paramètres), elle reste désactivée.
+    #>
+    param([string]$MainScript = (Join-Path $env:ProgramFiles 'DriverUpdater\DriverUpdater.ps1'))
+    $user     = "$env:USERDOMAIN\$env:USERNAME"
+    $existing = Get-ScheduledTask -TaskName $script:StartupTaskName -ErrorAction SilentlyContinue
+    $wasDisabled = ($existing -and [string]$existing.State -eq 'Disabled')
+
+    $action = New-ScheduledTaskAction -Execute 'powershell.exe' `
+        -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$MainScript`" -Startup"
+    $trigger = New-ScheduledTaskTrigger -AtLogOn -User $user
+    $trigger.Delay = 'PT2M'    # attend 2 minutes après l'ouverture de session (le temps d'avoir Internet)
+    $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Highest
+    $settings  = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+        -StartWhenAvailable -RunOnlyIfNetworkAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 2)
+    Register-ScheduledTask -TaskName $script:StartupTaskName -Action $action -Trigger $trigger -Principal $principal `
+        -Settings $settings -Description 'Driver : recherche des mises à jour de pilotes à l''ouverture de session' -Force | Out-Null
+
+    if ($wasDisabled) { Disable-ScheduledTask -TaskName $script:StartupTaskName | Out-Null }
+}
+
+function Get-StartupTaskEnabled {
+    $task = Get-ScheduledTask -TaskName $script:StartupTaskName -ErrorAction SilentlyContinue
+    return [bool]($task -and [string]$task.State -ne 'Disabled')
+}
+
+function Set-StartupTaskEnabled {
+    param([Parameter(Mandatory)][bool]$Enabled)
+    $task = Get-ScheduledTask -TaskName $script:StartupTaskName -ErrorAction SilentlyContinue
+    if (-not $task) {
+        if (-not $Enabled) { return }
+        Register-DriverStartupTask      # tâche supprimée entre-temps : on la recrée
+        return
+    }
+    if ($Enabled) { Enable-ScheduledTask -TaskName $script:StartupTaskName -ErrorAction Stop | Out-Null }
+    else          { Disable-ScheduledTask -TaskName $script:StartupTaskName -ErrorAction Stop | Out-Null }
+    Write-Log ("Recherche à l'ouverture de session : {0}" -f $(if ($Enabled) { 'activée' } else { 'désactivée' }))
 }

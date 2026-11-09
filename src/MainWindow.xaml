@@ -619,12 +619,12 @@
             <Border Style="{StaticResource Card}" Margin="0,0,0,10">
               <StackPanel>
                 <TextBlock Text="{DynamicResource L_SetCheckTitle}" Style="{StaticResource SectionTitle}"/>
-                <TextBlock Text="{DynamicResource L_SetCheckHelp}" Style="{StaticResource Muted}" Margin="0,2,0,10"/>
-                <WrapPanel>
+                <TextBlock Text="{DynamicResource L_SetCheckHelp}" Style="{StaticResource Muted}" Margin="0,2,0,12"/>
+                <CheckBox x:Name="ChkStartupCheck" Style="{StaticResource Toggle}" Content="{DynamicResource L_SetStartupCheck}" Margin="0,0,0,12"/>
+                <WrapPanel x:Name="FreqPanel">
                   <RadioButton x:Name="RbFreqStartup" GroupName="Freq" Style="{StaticResource Segment}" Content="{DynamicResource L_FreqStartup}"/>
                   <RadioButton x:Name="RbFreqDaily" GroupName="Freq" Style="{StaticResource Segment}" Content="{DynamicResource L_FreqDaily}"/>
                   <RadioButton x:Name="RbFreqWeekly" GroupName="Freq" Style="{StaticResource Segment}" Content="{DynamicResource L_FreqWeekly}"/>
-                  <RadioButton x:Name="RbFreqNever" GroupName="Freq" Style="{StaticResource Segment}" Content="{DynamicResource L_FreqNever}"/>
                 </WrapPanel>
                 <CheckBox x:Name="ChkNotify" Style="{StaticResource Toggle}" Margin="0,14,0,0"
                           Content="{DynamicResource L_SetNotify}"/>

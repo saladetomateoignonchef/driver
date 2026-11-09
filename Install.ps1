@@ -75,15 +75,7 @@ Initialize-AppFolder
 
 Write-Host "3/5 Création de la tâche planifiée '$taskName' pour $user" -ForegroundColor Cyan
 $mainScript = Join-Path $target 'DriverUpdater.ps1'
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' `
-    -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$mainScript`" -Startup"
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User $user
-$trigger.Delay = 'PT2M'    # attend 2 minutes après l'ouverture de session (le temps d'avoir Internet)
-$principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Highest
-$settings  = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
-    -StartWhenAvailable -RunOnlyIfNetworkAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 2)
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal `
-    -Settings $settings -Description 'Driver : recherche des mises à jour de pilotes à l''ouverture de session' -Force | Out-Null
+Register-DriverStartupTask -MainScript $mainScript   # garde la tâche désactivée si l'utilisateur l'a choisi
 
 Write-Host '4/5 Création du raccourci sur le Bureau' -ForegroundColor Cyan
 # GetFolderPath donne le VRAI chemin du Bureau (il peut être déplacé, ex. OneDrive)

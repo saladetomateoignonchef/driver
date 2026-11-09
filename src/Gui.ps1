@@ -636,10 +636,14 @@ function Show-MainWindow {
     function Update-SettingsView {
         $script:LoadingSettings = $true
         $s = $script:Settings
-        $ui.RbFreqStartup.IsChecked = ($s.CheckFrequency -eq 'Startup')
+        # Interrupteur : tâche planifiée active (et ancienne valeur « Jamais » = désactivé)
+        $startupOn = (Get-StartupTaskEnabled) -and $s.CheckFrequency -ne 'Never'
+        $ui.ChkStartupCheck.IsChecked = $startupOn
+        $ui.FreqPanel.IsEnabled     = $startupOn
+        $ui.ChkNotify.IsEnabled     = $startupOn
+        $ui.RbFreqStartup.IsChecked = ($s.CheckFrequency -in @('Startup', 'Never'))
         $ui.RbFreqDaily.IsChecked   = ($s.CheckFrequency -eq 'Daily')
         $ui.RbFreqWeekly.IsChecked  = ($s.CheckFrequency -eq 'Weekly')
-        $ui.RbFreqNever.IsChecked   = ($s.CheckFrequency -eq 'Never')
         $ui.ChkNotify.IsChecked     = [bool]$s.Notifications
         $ui.RbGameReady.IsChecked   = ($s.NvidiaBranch -ne 'Studio')
         $ui.RbStudio.IsChecked      = ($s.NvidiaBranch -eq 'Studio')
@@ -1271,7 +1275,19 @@ function Show-MainWindow {
     $ui.RbFreqStartup.Add_Checked({ Save-Setting 'CheckFrequency' 'Startup' })
     $ui.RbFreqDaily.Add_Checked({   Save-Setting 'CheckFrequency' 'Daily' })
     $ui.RbFreqWeekly.Add_Checked({  Save-Setting 'CheckFrequency' 'Weekly' })
-    $ui.RbFreqNever.Add_Checked({   Save-Setting 'CheckFrequency' 'Never' })
+    $ui.ChkStartupCheck.Add_Click({
+        $on = ($ui.ChkStartupCheck.IsChecked -eq $true)
+        try {
+            Set-StartupTaskEnabled -Enabled $on
+            if ($on -and $script:Settings.CheckFrequency -eq 'Never') { Save-Setting 'CheckFrequency' 'Startup' }
+            $ui.FreqPanel.IsEnabled = $on
+            $ui.ChkNotify.IsEnabled = $on
+        } catch {
+            $ui.ChkStartupCheck.IsChecked = -not $on      # on remet l'interrupteur comme avant
+            Write-Log "Tâche de démarrage non modifiée : $($_.Exception.Message)" 'ERREUR'
+            [void](Show-Message (T 'StartupTaskFailed' $_.Exception.Message) (T 'NavSettings') 'OK' 'Error')
+        }
+    })
     $ui.ChkNotify.Add_Click({       Save-Setting 'Notifications' ($ui.ChkNotify.IsChecked -eq $true) })
     $ui.RbGameReady.Add_Checked({   Save-Setting 'NvidiaBranch' 'GameReady' })
     $ui.RbStudio.Add_Checked({      Save-Setting 'NvidiaBranch' 'Studio' })

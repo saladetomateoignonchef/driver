@@ -166,7 +166,7 @@ Un lien que tu as modifié n'est plus jamais remplacé automatiquement. **Rétab
 
 | Réglage | Choix |
 |---|---|
-| **Vérification automatique** | À chaque démarrage, une fois par jour, une fois par semaine, ou jamais |
+| **Recherche à l'ouverture de session** | Interrupteur ON/OFF ; si ON : à chaque ouverture de session, une fois par jour ou une fois par semaine |
 | **Notification** | ON : une notification au démarrage ; OFF : la fenêtre s'ouvre directement |
 | **Pilote NVIDIA** | *Game Ready* (jeux, mis à jour souvent) ou *Studio* (création, plus stable) |
 | **Mode sombre** | Interrupteur soleil / lune |
