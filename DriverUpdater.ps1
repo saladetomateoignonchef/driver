@@ -20,6 +20,12 @@ param([switch]$Startup)
 
 $script:AppRoot = $PSScriptRoot
 
+function Show-TopMessage([string]$Text, [string]$Icon = 'Information') {
+    <# Message toujours au premier plan (Driver se lance en mode caché : un message normal pouvait rester derrière les fenêtres). #>
+    Add-Type -AssemblyName System.Windows.Forms
+    [void][System.Windows.Forms.MessageBox]::Show($Text, 'Driver', 'OK', $Icon, 'Button1', 'DefaultDesktopOnly')
+}
+
 # --- Chargement des modules : si des fichiers manquent (installation abîmée), on le dit clairement ---
 try {
     $required = @('src\Loader.ps1', 'src\Gui.ps1', 'src\MainWindow.xaml', 'src\lang\fr.json')
@@ -42,7 +48,15 @@ try {
 if (-not (Test-IsAdmin)) {
     $argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$PSCommandPath`"")
     if ($Startup) { $argList += '-Startup' }
-    Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList $argList
+    try {
+        Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList $argList -ErrorAction Stop
+    } catch {
+        # Demande d'autorisation refusée (« Non ») : on quitte sans rien dire. Toute autre erreur est affichée.
+        $native = $_.Exception.InnerException
+        if (-not ($native -is [System.ComponentModel.Win32Exception] -and $native.NativeErrorCode -eq 1223) -and $_.Exception.Message -notmatch 'annul|cancel') {
+            Show-TopMessage "Driver n'a pas pu se relancer en administrateur :`r`n$($_.Exception.Message)" 'Error'
+        }
+    }
     exit
 }
 
@@ -55,15 +69,13 @@ if (-not $created) {
     Write-Log 'Une instance est déjà lancée, arrêt.' 'WARN'
     if (-not $Startup) {
         # Lancement manuel : on prévient l'utilisateur au lieu de quitter sans rien dire
-        Add-Type -AssemblyName System.Windows.Forms
-        [void][System.Windows.Forms.MessageBox]::Show(
-            (T 'AlreadyRunning'),
-            'Driver', 'OK', 'Information')
+        Show-TopMessage (T 'AlreadyRunning')
     }
     exit
 }
 
 $script:RestartRequested = $false
+$script:MutexOwned = $true
 try {
     Clear-OldFiles -Days 30          # journaux et téléchargements de plus de 30 jours
     $settings = Get-AppSettings
@@ -92,7 +104,12 @@ try {
             $lines = @($visible | Select-Object -First 3 | ForEach-Object { "$($_.Device) : $($_.NewVersion)" })
             if ($newHw.Count) { $lines += (T 'NotifyNewHw' $newHw.Count) }
             $title = if ($visible.Count) { T 'NotifyTitle' $visible.Count } else { T 'NotifyNewHwTitle' }
-            if (-not (Show-UpdateNotification -Count $visible.Count -Summary ($lines -join "`n") -Title $title)) { exit 0 }
+            # Pendant l'attente de la notification (jusqu'à 1 h), Driver ne bloque pas une ouverture normale
+            $mutex.ReleaseMutex(); $script:MutexOwned = $false
+            $open = Show-UpdateNotification -Count $visible.Count -Summary ($lines -join "`n") -Title $title
+            if (-not $open) { exit 0 }
+            $script:MutexOwned = $mutex.WaitOne(0)
+            if (-not $script:MutexOwned) { Write-Log 'Driver a été ouvert entre-temps : la notification se ferme.'; exit 0 }
         }
         Show-MainWindow -InitialResults $results
     } else {
@@ -106,7 +123,7 @@ catch {
     [void][System.Windows.Forms.MessageBox]::Show("$(T 'Error') : $($_.Exception.Message)", 'Driver', 'OK', 'Error')
 }
 finally {
-    $mutex.ReleaseMutex()
+    if ($script:MutexOwned) { $mutex.ReleaseMutex() }
     $mutex.Dispose()
 }
 
