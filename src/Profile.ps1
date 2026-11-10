@@ -84,8 +84,11 @@ function Get-HardwareProfileList {
     <# Configurations enregistrées, la plus récente d'abord. #>
     foreach ($f in @(Get-ChildItem -Path $script:ProfileDir -Filter 'configuration-*.json' -ErrorAction SilentlyContinue | Sort-Object Name -Descending)) {
         try {
-            $p = Get-Content -Path $f.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
-            [pscustomobject]@{ Path = $f.FullName; Csv = ($f.FullName -replace '\.json$', '.csv'); Date = [datetime]$p.Date; Count = @($p.Devices).Count }
+            # Rapide : la date vient du nom du fichier, le nombre de périphériques d'un simple comptage
+            # (lire et décoder les 10 fichiers JSON en entier rendait la page lente)
+            $date  = [datetime]::ParseExact(($f.BaseName -replace '^configuration-', ''), 'yyyyMMdd-HHmmss', $null)
+            $count = ([regex]::Matches([IO.File]::ReadAllText($f.FullName), '"HardwareId"')).Count
+            [pscustomobject]@{ Path = $f.FullName; Csv = ($f.FullName -replace '\.json$', '.csv'); Date = $date; Count = $count }
         } catch { }
     }
 }

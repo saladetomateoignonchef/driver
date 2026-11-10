@@ -124,9 +124,10 @@ function Get-DriverBackup {
 }
 
 function Get-BackupTotalSizeMB {
-    $sum = (Get-ChildItem -Path $script:BackupDir -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum
+    <# Somme des tailles notées dans chaque backup.json (rapide : pas de parcours des fichiers des pilotes). #>
+    $sum = (@(Get-DriverBackup) | Measure-Object -Property SizeMB -Sum).Sum
     if (-not $sum) { return 0 }
-    return [math]::Round($sum / 1MB)
+    return [math]::Round($sum)
 }
 
 function Remove-DriverBackup {

@@ -107,7 +107,8 @@ function New-Pill([string]$Text, [string]$Kind = 'ok') {
 
 function Test-VerifiedSource([object]$Device) {
     <# Vrai si la dernière version a été vérifiée à la source (site du constructeur) : aujourd'hui, NVIDIA. #>
-    return [bool]($Device.VendorId -eq '10DE' -and $Device.Class -eq 'DISPLAY' -and (Get-AppSettings).ProviderNvidia)
+    $settings = if ($script:Settings) { $script:Settings } else { Get-AppSettings }   # pas de relecture du fichier à chaque carte
+    return [bool]($Device.VendorId -eq '10DE' -and $Device.Class -eq 'DISPLAY' -and $settings.ProviderNvidia)
 }
 
 function New-VersionText([string]$Current, [string]$New) {
@@ -249,6 +250,8 @@ function Show-MainWindow {
     $script:HwDiff       = $null
     $script:NewHardware  = @()
     $script:VendorChecks = @()
+    $script:StartupTaskOn = $null       # état de la tâche de démarrage (lu une fois, mis à jour par l'interrupteur)
+    $script:Dirty = @{ backups = $true; history = $true; settings = $true; hardware = $true; sites = $true; links = $true }
     $script:LinkRows     = New-Object System.Collections.Generic.List[object]
     $script:CurrentView  = 'dashboard'
     $script:LoadingSettings = $false
@@ -344,14 +347,34 @@ function Show-MainWindow {
             $ui[$navs[$k]].Foreground  = if ($on) { [System.Windows.Media.Brushes]::White } else { Get-Brush '#B8C7D6' }
         }
         $ui.PageTitle.Text = T $navs[$Name]
-        switch ($Name) {
-            'backups'  { Update-BackupsView }
-            'history'  { Update-HistoryView }
-            'settings' { Update-SettingsView }
-            'hardware' { Update-HardwareView }
-            'sites'    { Update-SitesView }
-            'links'    { Update-LinksView }
+        # La page s'affiche tout de suite ; son contenu est (re)construit juste après, et seulement
+        # s'il a changé depuis la dernière visite (sinon elle réapparaît instantanément).
+        if ($script:Dirty.ContainsKey($Name) -and $script:Dirty[$Name]) {
+            $script:PendingView = $Name
+            [void]$window.Dispatcher.BeginInvoke([Action]{
+                $v = $script:PendingView
+                if (-not $v -or -not $script:Dirty[$v]) { return }
+                $window.Cursor = [System.Windows.Input.Cursors]::AppStarting
+                try {
+                    switch ($v) {
+                        'backups'  { Update-BackupsView }
+                        'history'  { Update-HistoryView }
+                        'settings' { Update-SettingsView }
+                        'hardware' { Update-HardwareView }
+                        'sites'    { Update-SitesView }
+                        'links'    { Update-LinksView }
+                    }
+                    $script:Dirty[$v] = $false
+                } finally { if (-not $script:CurrentJob) { $window.Cursor = $null } }
+            }, [System.Windows.Threading.DispatcherPriority]::Background)
         }
+    }
+
+    function Set-Dirty([string[]]$Views) {
+        <# Marque des pages à reconstruire à leur prochain affichage (ou tout de suite si elles sont affichées). #>
+        if (-not $Views) { $Views = @($script:Dirty.Keys) }
+        foreach ($v in $Views) { $script:Dirty[$v] = $true }
+        if ($Views -contains $script:CurrentView) { Set-View $script:CurrentView }
     }
 
     function Get-StatusLine {
@@ -551,6 +574,7 @@ function Show-MainWindow {
             $ignore.Add_Click({
                 param($s, $e)
                 Add-IgnoredUpdate -Candidate $s.Tag -Settings $script:Settings
+                $script:Dirty['settings'] = $true
                 Update-All
             })
             Add-ToGrid $grid $ignore 6
@@ -688,7 +712,8 @@ function Show-MainWindow {
         $script:LoadingSettings = $true
         $s = $script:Settings
         # Interrupteur : tâche planifiée active (et ancienne valeur « Jamais » = désactivé)
-        $startupOn = (Get-StartupTaskEnabled) -and $s.CheckFrequency -ne 'Never'
+        if ($null -eq $script:StartupTaskOn) { $script:StartupTaskOn = Get-StartupTaskEnabled }
+        $startupOn = $script:StartupTaskOn -and $s.CheckFrequency -ne 'Never'
         $ui.ChkStartupCheck.IsChecked = $startupOn
         $ui.FreqPanel.IsEnabled     = $startupOn
         $ui.ChkNotify.IsEnabled     = $startupOn
@@ -937,6 +962,7 @@ function Show-MainWindow {
             $links.Add((New-AppLink $cat $name $url $auto))
         }
         Save-AppLinks -Links $links.ToArray()
+        $script:Dirty['sites'] = $true
         Write-Log "Liens enregistrés : $($links.Count)"
         $ui.StatusText.Text = T 'LinksSaved' $links.Count
         Update-LinksView
@@ -1226,7 +1252,7 @@ function Show-MainWindow {
                 if ($errText) { $msg += "`r`n`r`n$(T 'Error') : $errText" }
                 Set-Busy $false (T 'OpDone')
                 Update-Activity
-                if ($script:CurrentView -eq 'backups') { Update-BackupsView }
+                Set-Dirty @('backups', 'history', 'settings')
 
                 if ($reboot) {
                     if ((Show-Message ($msg + "`r`n`r`n" + (T 'RebootAsk')) 'Driver' 'YesNo' 'Question') -eq 'Yes') { Restart-Computer -Force }
@@ -1301,6 +1327,7 @@ function Show-MainWindow {
         if (-not $script:HwScan) { return }
         [void](Save-HardwareProfile -Snapshot $script:HwScan)
         [void](Update-AutoLinks -Config (Get-CurrentHardwareProfile))   # liens des nouveaux composants
+        $script:Dirty['sites'] = $true; $script:Dirty['links'] = $true
         $script:HwScan = $null; $script:HwDiff = $null
         $ui.BtnHwSave.IsEnabled = $false
         Update-HardwareBanner @()
@@ -1321,6 +1348,7 @@ function Show-MainWindow {
     $ui.BtnLinksReset.Add_Click({
         if ((Show-Message (T 'LinksResetConfirm') (T 'NavLinks') 'YesNo' 'Question') -eq 'Yes') {
             [void](Update-AutoLinks)
+            $script:Dirty['sites'] = $true
             Update-LinksView
         }
     })
@@ -1333,6 +1361,7 @@ function Show-MainWindow {
         $on = ($ui.ChkStartupCheck.IsChecked -eq $true)
         try {
             Set-StartupTaskEnabled -Enabled $on
+            $script:StartupTaskOn = $on
             if ($on -and $script:Settings.CheckFrequency -eq 'Never') { Save-Setting 'CheckFrequency' 'Startup' }
             $ui.FreqPanel.IsEnabled = $on
             $ui.ChkNotify.IsEnabled = $on
@@ -1366,7 +1395,7 @@ function Show-MainWindow {
             Set-Language $s.Tag
             # Les textes créés par le code sont reconstruits dans la nouvelle langue
             Update-All
-            Set-View $script:CurrentView
+            Set-Dirty                       # textes à reconstruire dans la nouvelle langue
             Update-HardwareBanner $script:NewHardware
             if ($script:AppRelease) { Show-AppUpdateBanner $script:AppRelease }
             if (-not $script:CurrentJob) { $ui.StatusText.Text = Get-StatusLine }
@@ -1429,6 +1458,7 @@ function Show-MainWindow {
                 $withConfig = ((Show-Message (T 'ImportConfigAsk' $data.Computer) (T 'Import') 'YesNo' 'Question') -eq 'Yes')
             }
             Import-AppSettings -Data $data -IncludeConfiguration:$withConfig
+            foreach ($k in @($script:Dirty.Keys)) { $script:Dirty[$k] = $true }
             # Application immédiate des réglages importés
             $script:Settings = Get-AppSettings
             Set-Theme $script:Settings.Theme
